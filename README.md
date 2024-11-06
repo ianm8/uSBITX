@@ -1,2 +1,2 @@
 # uSBITX
-A HF transceiver based on the sBITX.
+An HF transceiver based on the sBITX.
