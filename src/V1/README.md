@@ -1,1 +1,1 @@
-A stable version with Minimal features and options.
+A stable version with minimal features and options.
