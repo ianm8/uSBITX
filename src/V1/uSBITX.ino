@@ -1,5 +1,5 @@
 /*
- * uSBITX Version 0.6.225
+ * uSBITX Version 0.8.225
  *
  * Copyright 2024 Ian Mitchell VK7IAN
  * Licenced under the GNU GPL Version 3
@@ -21,6 +21,10 @@
  *  Optimize: -O2
  *  USB Stack: No USB
  *
+ * Some history
+ *  0.7.255 fixed bug in auto mode
+ *  0.8.255 fixed bug in spectrum dynamic range
+ *
  */
 
 #include <SPI.h>
@@ -39,7 +43,7 @@
 
 //#define YOUR_CALL "VK7IAN"
 
-#define VERSION_STRING "  V0.6."
+#define VERSION_STRING "  V0.8."
 //#define CRYSTAL_CENTRE 40000000UL
 #define CRYSTAL_CENTRE 39999500UL
 #define IF_CENTRE 7812UL
@@ -1397,33 +1401,33 @@ static void process_key(void)
   }
 }
 
-static void set_mode_auto(void)
+static radio_mode_t get_mode_auto(void)
 {
   if (!radio.mode_auto)
   {
-    return;
+    return radio.mode;
   }
-  radio.mode = MODE_USB;
   if (radio.frequency<10000000ul)
   {
     if (radio.frequency==7074000ul)
     {
-      return;
+      return MODE_USB;
     }
     if (radio.frequency==3573000ul)
     {
-      return;
+      return MODE_USB;
     }
-    radio.mode = MODE_LSB;
     if (radio.frequency<7060000ul && radio.frequency>=7000000ul)
     {
-      radio.mode = MODE_LCW;
+      return MODE_LCW;
     }
+    return MODE_LSB;
   }
   else if (radio.frequency<14060000ul && radio.frequency>=14000000ul)
   {
-    radio.mode = MODE_UCW;
+    return MODE_UCW;
   }
+  return MODE_USB;
 }
 
 static void set_frequency(void)
@@ -1482,7 +1486,11 @@ void loop1(void)
       }
 
       // mode may change in auto
-      set_mode_auto();
+      const radio_mode_t auto_mode = get_mode_auto();
+      if (radio.mode != auto_mode)
+      {
+        radio.mode = auto_mode;
+      }
 
       // update frequency if mode changes
       if (radio.mode!=old_mode)
@@ -1569,7 +1577,11 @@ void loop1(void)
       }
 
       // set the mode based on frequency if auto
-      set_mode_auto();
+      const radio_mode_t auto_mode = get_mode_auto();
+      if (radio.mode != auto_mode)
+      {
+        radio.mode = auto_mode;
+      }
 
       // process main tuning
       mutex_enter_blocking(&rotary_mutex);

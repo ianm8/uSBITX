@@ -4586,7 +4586,6 @@ namespace spectrum
   {
     int16_t re[N_WAVE] = { 0 };
     int16_t im[N_WAVE] = { 0 };
-    uint32_t magnitude[N_WAVE] = { 0 };
 
     // DC removal
     // (get the average and subtract from all samples)
@@ -4605,29 +4604,30 @@ namespace spectrum
       {
         max_mag = mag_value;
       }
-      if (max_mag<1024)
-      {
-        re[i] = real_value<<3;
-      }
-      else if (max_mag<2048)
-      {
-        re[i] = real_value<<2;
-      }
-      else if (max_mag<4096)
-      {
-        re[i] = real_value<<1;
-      }
-      else
-      {
-        re[i] = real_value;
-      }
+      re[i] = real_value;
       im[i] = 0;
+    }
+
+    // improve the display dynamic range
+    uint32_t range_adjust = 0;
+    if (max_mag<1024)
+    {
+      range_adjust = 3u;
+    }
+    else if (max_mag<2048)
+    {
+      range_adjust = 2u;
+    }
+    else if (max_mag<4096)
+    {
+      range_adjust = 1u;
     }
 
     // Hann window
     for (uint32_t i = 0; i < N_WAVE; i++)
     {
-      const int32_t w = (int32_t)re[i] * (int32_t)window_hanning_1024[i];
+      const int32_t real_value = (int32_t)re[i] << range_adjust;
+      const int32_t w = real_value * (int32_t)window_hanning_1024[i];
       re[i] = (int16_t)(w >> 15);
     }
 
@@ -4640,18 +4640,7 @@ namespace spectrum
       // magnitude estimate
       const uint16_t m = abs(re[i]);
       const uint16_t n = abs(im[i]);
-      magnitude[i] = ((15 * max(m, n))>>4) + ((15 * min(m, n)) >> 5);
-/*
-      if (i<77)
-      {
-        magnitude[i] <<= ((91-i)/15);
-      }
-*/
-    }
-    // log magnitude
-    for (uint32_t i = 0; i < N_WAVE; i++)
-    {
-      mag[i] = log32(magnitude[i]);
+      mag[i] = log32(((15 * max(m, n))>>4) + ((15 * min(m, n)) >> 5));
     }
   }
 }

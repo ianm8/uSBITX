@@ -2793,7 +2793,7 @@ static const uint32_t __not_in_flash_func(get_mic_peak_level)(const int16_t mic_
 const int16_t __not_in_flash_func(process_mic)(const int16_t s,const bool mode_LSB)
 {
   // generate an SSB signal at FS/4 (7812 Hz)
-  // 1. remove DC (IIR)
+  // 1. remove DC (IIR) ?needed? ////
   // 2. bandpass filter (300 - 2400)
   // 3. upconvert to FS/4 (mix with BFO at FS/4)
   // 4. remove unwanted sideband (LPF/HPF at FS/4)
@@ -2806,7 +2806,8 @@ const int16_t __not_in_flash_func(process_mic)(const int16_t s,const bool mode_L
 
   // 2400Hz LPF ( s>>3 = 5 Watts)
   // 2400Hz LPF ( s>>2 = 10 Watts)
-  const int16_t lpf2400 = bpf_300_2400(dc(s>>1));
+  //const int16_t lpf2400 = bpf_300_2400(dc(s>>1));
+  const int16_t lpf2400 = bpf_300_2400(s);
 
   // up convert to FS/4
   // note LO signal reduces to 0, 1 and -1 at FS/4
@@ -2910,10 +2911,9 @@ static const int16_t __not_in_flash_func(process_cw_rx)(const int16_t s,const bo
 static const int16_t __not_in_flash_func(process_lu_cw)(const int16_t s,const bool mode_LCW,const bool higain)
 {
   // demodulate a CW signal at FS/4 (7812 Hz)
-  // 1. remove DC (IIR) - //// needed?
-  // 2. narrow bandpass at FS/4
-  // 3. downconvert to baseband (mix with BFO at FS/4 +/- sidetone)
-  // 4. lowpass at FS/4 remove mixing image
+  // 1. narrow bandpass at FS/4
+  // 2. downconvert to baseband (mix with BFO at FS/4 +/- sidetone)
+  // 3. lowpass at FS/4 remove mixing image
 
   // set up DDS BFO
   volatile static uint32_t dds = 0;
@@ -2921,14 +2921,12 @@ static const int16_t __not_in_flash_func(process_lu_cw)(const int16_t s,const bo
   static const uint32_t LCW_BFO = ((uint64_t)(SAMPLERATE/4u - sidetone) * (1ull << 32)) / SAMPLERATE;
   static const uint32_t UCW_BFO = ((uint64_t)(SAMPLERATE/4u + sidetone) * (1ull << 32)) / SAMPLERATE;
 
-  // remove DC
-  //int16_t v = dc(s);
-
   // narrow bandpass (also removes DC)
-  const int32_t m = (int32_t)bpf_fs4_cw(s);
+  //const int32_t m = (int32_t)bpf_fs4_cw(s);
+  const int32_t m = (int32_t)bpf_fs4_cw_f(s);
 
   // mix with BFO
-  const int32_t bfo = (int32_t)sin_tab[dds>>22];
+  const int32_t bfo = (int32_t)sin_tab[(dds>>22)&0x03ff];
   int16_t v = (int16_t)((m * bfo)>>15);
 
   // recover 6dB loss and remove image after mixing
@@ -2975,7 +2973,7 @@ static const int16_t __not_in_flash_func(process_ssb_rx)(const int16_t s,const b
   }
 
   // 300Hz - 2400Hz BPF
-  v = bpf_300_2400(m);
+  v = bpf_300_2400(m<<1);
 
   if (higain) v <<= 1;
   v = agc(v,higain);
