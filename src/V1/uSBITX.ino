@@ -1,5 +1,5 @@
 /*
- * uSBITX Version 0.8.225
+ * uSBITX Version 1.0.225
  *
  * Copyright 2024 Ian Mitchell VK7IAN
  * Licenced under the GNU GPL Version 3
@@ -24,10 +24,19 @@
  * Some history
  *  0.7.255 fixed bug in auto mode
  *  0.8.255 fixed bug in spectrum dynamic range
+ *  0.9.255 fixed sidetone level
+ *  0.9.255 fixed CW RX noise
+ *  0.9.255 fixed AGC TX/RX transition
+ *  0.9.255 remove experimental CWL and CWU
+ *  0.9.255 LCW and UCW become CWL and CWU
+ *  0.9.225 CW Speed, sidetone frequency, and level
+ *  1.0.225 save/restore CW settings to EEPROM
+ *  1.0.225 general code cleanup
  *
  */
 
 #include <SPI.h>
+#include <EEPROM.h>
 #include <TFT_eSPI.h>
 #include "util.h"
 #include "si5351mcu.h"
@@ -43,8 +52,7 @@
 
 //#define YOUR_CALL "VK7IAN"
 
-#define VERSION_STRING "  V0.8."
-//#define CRYSTAL_CENTRE 40000000UL
+#define VERSION_STRING "  V1.0."
 #define CRYSTAL_CENTRE 39999500UL
 #define IF_CENTRE 7812UL
 #define CW_TIMEOUT 800u
@@ -64,6 +72,8 @@
 #define DEFAULT_MODE MODE_USB
 #define DEFAULT_STEP 1000ul
 #define DEFAULT_CW_SPEED 60ul
+#define DEFAULT_SIDETONE 700ul
+#define DEFAULT_CW_LEVEL 2ul
 #define BUTTON_LONG_PRESS_TIME 800ul
 #define TCXO_FREQ 26000000ul
 
@@ -166,9 +176,7 @@ enum radio_mode_t
   MODE_LSB,
   MODE_USB,
   MODE_CWL,
-  MODE_CWU,
-  MODE_LCW,
-  MODE_UCW
+  MODE_CWU
 };
 
 auto_init_mutex(rotary_mutex);
@@ -187,6 +195,10 @@ volatile static struct
   uint32_t frequency;
   uint32_t band;
   uint32_t cw_dit;
+  uint32_t cw_level;
+  uint32_t sidetone;
+  uint32_t cw_bfo;
+  uint32_t cw_phase;
   radio_mode_t mode;
   bool tx_enable;
   bool keydown;
@@ -202,6 +214,10 @@ radio =
   DEFAULT_FREQUENCY,
   DEFAULT_BAND,
   DEFAULT_CW_SPEED,
+  DEFAULT_CW_LEVEL,
+  DEFAULT_SIDETONE,
+  (uint32_t)(((uint64_t)(SAMPLERATE/4u - DEFAULT_SIDETONE) * (1ull << 32)) / SAMPLERATE),
+  (uint32_t)(((uint64_t)DEFAULT_SIDETONE * (1ull << 32)) / SAMPLERATE),
   DEFAULT_MODE,
   false,
   false,
@@ -307,6 +323,36 @@ static void display_refresh(void)
   lcd.pushSprite(0,0);
 }
 
+static void save_settings(void)
+{
+  static const uint32_t key = 0x12345678ul;
+  EEPROM.begin(256);
+  EEPROM.put(0*sizeof(uint32_t),key);
+  EEPROM.put(1*sizeof(uint32_t),(uint32_t)radio.cw_dit);
+  EEPROM.put(2*sizeof(uint32_t),(uint32_t)radio.cw_level);
+  EEPROM.put(3*sizeof(uint32_t),(uint32_t)radio.sidetone);
+  EEPROM.put(4*sizeof(uint32_t),(uint32_t)radio.cw_bfo);
+  EEPROM.put(5*sizeof(uint32_t),(uint32_t)radio.cw_phase);
+  EEPROM.end();
+}
+
+static void restore_settings(void)
+{
+  uint32_t key = 0 ;
+  EEPROM.begin(256);
+  EEPROM.get(0,key);
+  if (key==0x12345678)
+  {
+    uint32_t data32 = 0;
+    EEPROM.get(1*sizeof(uint32_t),data32); radio.cw_dit   = data32;
+    EEPROM.get(2*sizeof(uint32_t),data32); radio.cw_level = data32;
+    EEPROM.get(3*sizeof(uint32_t),data32); radio.sidetone = data32;
+    EEPROM.get(4*sizeof(uint32_t),data32); radio.cw_bfo   = data32;
+    EEPROM.get(5*sizeof(uint32_t),data32); radio.cw_phase = data32;
+  }
+  EEPROM.end();
+}
+
 void setup(void)
 {
   // run DSP on core 0
@@ -383,6 +429,7 @@ void setup(void)
   radio.frequency = DEFAULT_FREQUENCY;
   radio.band = DEFAULT_BAND;
   radio.mode = DEFAULT_MODE;
+  restore_settings();
   set_filter();
 
 #ifdef DEBUG_LED
@@ -470,7 +517,6 @@ void setup(void)
   lcd.fillSprite(LCD_BLACK);
   lcd.pushSprite(0,0);
 
-////
   // intro screen
   lcd.fillSprite(LCD_BLACK);
   lcd.setTextColor(LCD_WHITE,LCD_BLACK);
@@ -608,7 +654,10 @@ static void show_swr(void)
   lcd.print(sz_swr);
 
   // power out
-  const uint32_t po = (uint32_t)(((vfwd * vfwd * 1e-5f) + 0.05f) * 10.0f);
+  // compensate for diode drop
+  static const float diode = 100.0f;
+  const float vcomp = vfwd + diode;
+  const uint32_t po = (uint32_t)(((vcomp * vcomp * 1e-5f) + 0.05f) * 10.0f);
   if (po>max_po)
   {
     max_po = po;
@@ -685,8 +734,6 @@ static void show_mode(void)
     case MODE_USB: sz_mode = "USB"; break;
     case MODE_CWL: sz_mode = "CWL"; break;
     case MODE_CWU: sz_mode = "CWU"; break;
-    case MODE_LCW: sz_mode = "LCW"; break;
-    case MODE_UCW: sz_mode = "UCW"; break;
   }
   lcd.print(sz_mode);
 }
@@ -777,7 +824,7 @@ static void show_spectrum(void)
   {
     case MODE_LSB:
     {
-      for (uint32_t x=0;x<50;x++)
+      for (uint32_t x=0;x<40;x++)
       {
         lcd.drawLine(POS_CENTER_LEFT-x,POS_WATER_Y,POS_CENTER_LEFT-x,POS_WATER_Y+31,LCD_MODE);
       }
@@ -785,32 +832,16 @@ static void show_spectrum(void)
     }
     case MODE_USB:
     {
-      for (uint32_t x=0;x<50;x++)
+      for (uint32_t x=0;x<40;x++)
       {
         lcd.drawLine(POS_CENTER_RIGHT+x,POS_WATER_Y,POS_CENTER_RIGHT+x,POS_WATER_Y+31,LCD_MODE);
       }
       break;
     }
     case MODE_CWL:
-    {
-      for (uint32_t x=0;x<20;x++)
-      {
-        lcd.drawLine(POS_CENTER_LEFT-10-x,POS_WATER_Y,POS_CENTER_LEFT-10-x,POS_WATER_Y+31,LCD_MODE);
-      }
-      break;
-    }
     case MODE_CWU:
     {
-      for (uint32_t x=0;x<20;x++)
-      {
-        lcd.drawLine(POS_CENTER_RIGHT+10+x,POS_WATER_Y,POS_CENTER_RIGHT+10+x,POS_WATER_Y+31,LCD_MODE);
-      }
-      break;
-    }
-    case MODE_LCW:
-    case MODE_UCW:
-    {
-      for (uint32_t x=0;x<10;x++)
+      for (uint32_t x=0;x<5;x++)
       {
         lcd.drawLine(POS_CENTER_LEFT-x,POS_WATER_Y,POS_CENTER_LEFT-x,POS_WATER_Y+31,LCD_MODE);
         lcd.drawLine(POS_CENTER_RIGHT+x,POS_WATER_Y,POS_CENTER_RIGHT+x,POS_WATER_Y+31,LCD_MODE);
@@ -1157,13 +1188,10 @@ void loop(void)
         volatile const uint32_t cpu_start = time_us_32();
         adc_value_ready = false;
         int16_t tx_value = 0;
-        if (radio.mode==MODE_CWL ||
-          radio.mode==MODE_CWU ||
-          radio.mode==MODE_LCW ||
-          radio.mode==MODE_UCW)
+        if (radio.mode==MODE_CWL || radio.mode==MODE_CWU)
         {
           tx_value = CW::process_cw(radio.keydown,radio.gaussian);
-          dac_audio = CW::get_sidetone(radio.keydown);
+          dac_audio = CW::get_sidetone(radio.keydown,radio.cw_phase,radio.cw_level)+2048;
         }
         else
         {
@@ -1212,12 +1240,10 @@ void loop(void)
         int16_t rx_value = 0;
         switch (radio.mode)
         {
-          case MODE_LSB: rx_value = process_ssb_rx(adc_value,true,radio.higain);  break;
-          case MODE_USB: rx_value = process_ssb_rx(adc_value,false,radio.higain); break;
-          case MODE_CWL: rx_value = process_cw_rx(adc_value,true,radio.higain);   break;
-          case MODE_CWU: rx_value = process_cw_rx(adc_value,false,radio.higain);  break;
-          case MODE_LCW: rx_value = process_lu_cw(adc_value,true,radio.higain);   break;
-          case MODE_UCW: rx_value = process_lu_cw(adc_value,false,radio.higain);  break;
+          case MODE_LSB: rx_value = process_ssb_rx(adc_value,true,radio.higain);        break;
+          case MODE_USB: rx_value = process_ssb_rx(adc_value,false,radio.higain);       break;
+          case MODE_CWL: rx_value = process_cw_rx(adc_value,radio.cw_bfo,radio.higain); break;
+          case MODE_CWU: rx_value = process_cw_rx(adc_value,radio.cw_bfo,radio.higain); break;
         }
         dac_audio = constrain(rx_value,-2048,+2047)+2048;
 
@@ -1401,7 +1427,7 @@ static void process_key(void)
   }
 }
 
-static radio_mode_t get_mode_auto(void)
+static const radio_mode_t get_mode_auto(void)
 {
   if (!radio.mode_auto)
   {
@@ -1419,21 +1445,20 @@ static radio_mode_t get_mode_auto(void)
     }
     if (radio.frequency<7060000ul && radio.frequency>=7000000ul)
     {
-      return MODE_LCW;
+      return MODE_CWL;
     }
     return MODE_LSB;
   }
   else if (radio.frequency<14060000ul && radio.frequency>=14000000ul)
   {
-    return MODE_UCW;
+    return MODE_CWU;
   }
   return MODE_USB;
 }
 
 static void set_frequency(void)
 {
-  const uint32_t correct4cw = radio.mode==MODE_CWL?+CW_SIDETONE:radio.mode==MODE_CWU?-CW_SIDETONE:0u;
-  const uint32_t f = (radio.frequency+CRYSTAL_CENTRE+correct4cw);
+  const uint32_t f = (radio.frequency+CRYSTAL_CENTRE);
   SI5351.setFreq(1,f);
 }
 
@@ -1442,6 +1467,9 @@ void loop1(void)
   // run UI on core 1
   static uint32_t old_frequency = radio.frequency;
   static uint32_t old_band = radio.band;
+  static uint32_t old_sidetone = radio.sidetone;
+  static uint32_t old_cw_level = radio.cw_level;
+  static uint32_t old_cw_dit = radio.cw_dit;
   static mode_t old_mode = radio.mode;
 
   // process button press
@@ -1464,8 +1492,6 @@ void loop1(void)
         case OPTION_MODE_USB:     radio.mode = MODE_USB; radio.mode_auto = false; break;
         case OPTION_MODE_CWL:     radio.mode = MODE_CWL; radio.mode_auto = false; break;
         case OPTION_MODE_CWU:     radio.mode = MODE_CWU; radio.mode_auto = false; break;
-        case OPTION_MODE_LCW:     radio.mode = MODE_LCW; radio.mode_auto = false; break;
-        case OPTION_MODE_UCW:     radio.mode = MODE_UCW; radio.mode_auto = false; break;
         case OPTION_MODE_AUTO:    radio.mode_auto = true;                         break;
         case OPTION_STEP_10:      radio.step = 10U;                               break;
         case OPTION_STEP_100:     radio.step = 100U;                              break;
@@ -1480,9 +1506,61 @@ void loop1(void)
         case OPTION_BAND_15M:     radio.band = BAND_15M;                          break;
         case OPTION_BAND_12M:     radio.band = BAND_12M;                          break;
         case OPTION_BAND_10M:     radio.band = BAND_10M;                          break;
+        case OPTION_SIDETONE_500: radio.sidetone = 500u;                          break;
+        case OPTION_SIDETONE_550: radio.sidetone = 550u;                          break;
+        case OPTION_SIDETONE_600: radio.sidetone = 600u;                          break;
+        case OPTION_SIDETONE_650: radio.sidetone = 650u;                          break;
+        case OPTION_SIDETONE_700: radio.sidetone = 700u;                          break;
+        case OPTION_SIDETONE_750: radio.sidetone = 750u;                          break;
+        case OPTION_SIDETONE_800: radio.sidetone = 800u;                          break;
+        case OPTION_SIDETONE_850: radio.sidetone = 850u;                          break;
+        case OPTION_SIDETONE_LOW: radio.cw_level = 1u;                            break;
+        case OPTION_SIDETONE_MED: radio.cw_level = 2u;                            break;
+        case OPTION_SIDETONE_HI:  radio.cw_level = 3u;                            break;
+        case OPTION_CW_SPEED_10:  radio.cw_dit = 120u;                            break;
+        case OPTION_CW_SPEED_15:  radio.cw_dit = 80u;                             break;
+        case OPTION_CW_SPEED_20:  radio.cw_dit = 60u;                             break;
+        case OPTION_CW_SPEED_25:  radio.cw_dit = 48u;                             break;
+        case OPTION_CW_SPEED_30:  radio.cw_dit = 40u;                             break;
         case OPTION_GAUSSIAN_ON:  radio.gaussian = true;                          break; 
         case OPTION_GAUSSIAN_OFF: radio.gaussian = false;                         break; 
         case OPTION_EXIT:         radio.menu_active = false;                      break; 
+      }
+
+      // when settings change save them
+      bool settings_changed = false;
+
+      // update DDS phase if sidetone changed
+      if (radio.sidetone != old_sidetone)
+      {
+        old_sidetone = radio.sidetone;
+        settings_changed = true;
+        radio.cw_phase = ((uint64_t)radio.sidetone * (1ull << 32)) / SAMPLERATE;
+        switch (radio.mode)
+        {
+          case MODE_CWL: radio.cw_bfo = ((uint64_t)(SAMPLERATE/4u - radio.sidetone) * (1ull << 32)) / SAMPLERATE; break;
+          case MODE_CWU: radio.cw_bfo = ((uint64_t)(SAMPLERATE/4u + radio.sidetone) * (1ull << 32)) / SAMPLERATE; break;
+        }
+      }
+
+      // CW timing
+      if (radio.cw_dit != old_cw_dit)
+      {
+        old_cw_dit = radio.cw_dit;
+        settings_changed = true;
+      }
+
+      // CW level
+      if (radio.cw_level != old_cw_level)
+      {
+        old_cw_level = radio.cw_level;
+        settings_changed = true;
+      }
+
+      // save the settings
+      if (settings_changed)
+      {
+        save_settings();
       }
 
       // mode may change in auto
@@ -1623,16 +1701,15 @@ void loop1(void)
   const bool b_PADB = (digitalRead(PIN_PADB)==LOW);
   if (b_PTT || b_PADA || b_PADB)
   {
+    const float saved_agc = agc_peak;
     radio.menu_active = false;
-    if (radio.mode==MODE_CWL ||
-      radio.mode==MODE_CWU ||
-      radio.mode==MODE_LCW ||
-      radio.mode==MODE_UCW)
+    if (radio.mode==MODE_CWL || radio.mode==MODE_CWU)
     {
       process_key();
     }
     else if (b_PTT)
     {
+
       process_ssb_tx();
     }
     // back to receive
@@ -1644,5 +1721,6 @@ void loop1(void)
     digitalWrite(LED_BUILTIN,LOW);
     update_display();
     digitalWrite(PIN_MUTE,HIGH);
+    agc_peak = saved_agc;
   }
 }

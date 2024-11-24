@@ -30,7 +30,7 @@
 
 */
 
-#define NUM_MENU_ITEMS 5U
+#define NUM_MENU_ITEMS 8U
 #define NUM_MENU_OPTIONS 9U
 
 enum menu_top_t
@@ -38,6 +38,9 @@ enum menu_top_t
   MENU_BAND,
   MENU_STEP,
   MENU_MODE,
+  MENU_CW_SPEED,
+  MENU_SIDETONE,
+  MENU_SIDETONE_LEVEL,
   MENU_GAUSSIAN,
   MENU_EXIT
 };
@@ -53,8 +56,6 @@ enum option_value_t
   OPTION_MODE_LSB,
   OPTION_MODE_CWL,
   OPTION_MODE_CWU,
-  OPTION_MODE_LCW,
-  OPTION_MODE_UCW,
   OPTION_MODE_AUTO,
   OPTION_BAND_80M,
   OPTION_BAND_40M,
@@ -66,6 +67,22 @@ enum option_value_t
   OPTION_BAND_10M,
   OPTION_GAUSSIAN_ON,
   OPTION_GAUSSIAN_OFF,
+  OPTION_CW_SPEED_10,
+  OPTION_CW_SPEED_15,
+  OPTION_CW_SPEED_20,
+  OPTION_CW_SPEED_25,
+  OPTION_CW_SPEED_30,
+  OPTION_SIDETONE_500,
+  OPTION_SIDETONE_550,
+  OPTION_SIDETONE_600,
+  OPTION_SIDETONE_650,
+  OPTION_SIDETONE_700,
+  OPTION_SIDETONE_750,
+  OPTION_SIDETONE_800,
+  OPTION_SIDETONE_850,
+  OPTION_SIDETONE_LOW,
+  OPTION_SIDETONE_MED,
+  OPTION_SIDETONE_HI,
   OPTION_NONE,
   OPTION_EXIT
 };
@@ -126,9 +143,57 @@ menu_options[NUM_MENU_ITEMS] =
       {OPTION_MODE_USB,"USB"},
       {OPTION_MODE_CWL,"CWL"},
       {OPTION_MODE_CWU,"CWU"},
-      {OPTION_MODE_LCW,"LCW"},
-      {OPTION_MODE_UCW,"UCW"},
       {OPTION_MODE_AUTO,"AUTO"},
+      {OPTION_EXIT,"Exit"},
+      {OPTION_EXIT,"Exit"},
+      {OPTION_EXIT,"Exit"},
+      {OPTION_EXIT,"Exit"}
+    }
+  },
+  {
+    MENU_CW_SPEED,
+    "CW Speed",
+    6U,
+    {
+      {OPTION_CW_SPEED_10,"10 WPM"},
+      {OPTION_CW_SPEED_15,"15 WPM"},
+      {OPTION_CW_SPEED_20,"20 WPM"},
+      {OPTION_CW_SPEED_25,"25 WPM"},
+      {OPTION_CW_SPEED_30,"30 WPM"},
+      {OPTION_EXIT,"Exit"},
+      {OPTION_EXIT,"Exit"},
+      {OPTION_EXIT,"Exit"},
+      {OPTION_EXIT,"Exit"}
+    }
+  },
+  {
+    MENU_SIDETONE,
+    "CW Tone",
+    9U,
+    {
+      {OPTION_SIDETONE_500,"500 Hz"},
+      {OPTION_SIDETONE_550,"550 Hz"},
+      {OPTION_SIDETONE_600,"600 Hz"},
+      {OPTION_SIDETONE_650,"650 Hz"},
+      {OPTION_SIDETONE_700,"700 Hz"},
+      {OPTION_SIDETONE_750,"750 Hz"},
+      {OPTION_SIDETONE_800,"800 Hz"},
+      {OPTION_SIDETONE_850,"850 Hz"},
+      {OPTION_EXIT,"Exit"}
+    }
+  },
+  {
+    MENU_SIDETONE_LEVEL,
+    "CW Level",
+    4U,
+    {
+      {OPTION_SIDETONE_LOW,"Low"},
+      {OPTION_SIDETONE_MED,"Medium"},
+      {OPTION_SIDETONE_HI,"High"},
+      {OPTION_EXIT,"Exit"},
+      {OPTION_EXIT,"Exit"},
+      {OPTION_EXIT,"Exit"},
+      {OPTION_EXIT,"Exit"},
       {OPTION_EXIT,"Exit"},
       {OPTION_EXIT,"Exit"}
     }
