@@ -1,5 +1,5 @@
 /*
- * uSBITX Version 1.0.225
+ * uSBITX Version 1.1.225
  *
  * Copyright 2024 Ian Mitchell VK7IAN
  * Licenced under the GNU GPL Version 3
@@ -20,6 +20,7 @@
  *  CPU Speed: 225Mhz
  *  Optimize: -O2
  *  USB Stack: No USB
+ *  Flash Size: 4MB (Sketch: 4032KB, FS: 64KB)
  *
  * Some history
  *  0.7.255 fixed bug in auto mode
@@ -32,6 +33,9 @@
  *  0.9.225 CW Speed, sidetone frequency, and level
  *  1.0.225 save/restore CW settings to EEPROM
  *  1.0.225 general code cleanup
+ *  1.1.225 add spectrum type (wind or grass)
+ *  1.1.225 add IF shift
+ *  1.1.225 CW transition to receive mute
  *
  */
 
@@ -52,7 +56,7 @@
 
 //#define YOUR_CALL "VK7IAN"
 
-#define VERSION_STRING "  V1.0."
+#define VERSION_STRING "  V1.1."
 #define CRYSTAL_CENTRE 39999500UL
 #define IF_CENTRE 7812UL
 #define CW_TIMEOUT 800u
@@ -147,6 +151,9 @@
 #define MENU_WIDTH        160
 #define MENU_HEIGHT        82
 
+#define SPECTRUM_WIND  0u
+#define SPECTRUM_GRASS 1u
+
 #if PIN_MIC == 26U
 #define MIC_MUX 0U
 #elif PIN_MIC == 27U
@@ -191,6 +198,7 @@ static uint8_t magnitude[1024] = {0};
 volatile static struct
 {
   int32_t tune;
+  int32_t ifshift;
   uint32_t step;
   uint32_t frequency;
   uint32_t band;
@@ -199,6 +207,7 @@ volatile static struct
   uint32_t sidetone;
   uint32_t cw_bfo;
   uint32_t cw_phase;
+  uint32_t spectype;
   radio_mode_t mode;
   bool tx_enable;
   bool keydown;
@@ -210,6 +219,7 @@ volatile static struct
 radio =
 {
   0l,
+  0l,
   DEFAULT_STEP,
   DEFAULT_FREQUENCY,
   DEFAULT_BAND,
@@ -218,6 +228,7 @@ radio =
   DEFAULT_SIDETONE,
   (uint32_t)(((uint64_t)(SAMPLERATE/4u - DEFAULT_SIDETONE) * (1ull << 32)) / SAMPLERATE),
   (uint32_t)(((uint64_t)DEFAULT_SIDETONE * (1ull << 32)) / SAMPLERATE),
+  SPECTRUM_WIND,
   DEFAULT_MODE,
   false,
   false,
@@ -333,6 +344,8 @@ static void save_settings(void)
   EEPROM.put(3*sizeof(uint32_t),(uint32_t)radio.sidetone);
   EEPROM.put(4*sizeof(uint32_t),(uint32_t)radio.cw_bfo);
   EEPROM.put(5*sizeof(uint32_t),(uint32_t)radio.cw_phase);
+  EEPROM.put(6*sizeof(uint32_t),(uint32_t)radio.ifshift);
+  EEPROM.put(7*sizeof(uint32_t),(uint32_t)radio.spectype);
   EEPROM.end();
 }
 
@@ -349,6 +362,8 @@ static void restore_settings(void)
     EEPROM.get(3*sizeof(uint32_t),data32); radio.sidetone = data32;
     EEPROM.get(4*sizeof(uint32_t),data32); radio.cw_bfo   = data32;
     EEPROM.get(5*sizeof(uint32_t),data32); radio.cw_phase = data32;
+    EEPROM.get(6*sizeof(uint32_t),data32); radio.ifshift = (int32_t)data32;
+    EEPROM.get(7*sizeof(uint32_t),data32); radio.spectype = data32;
   }
   EEPROM.end();
 }
@@ -459,8 +474,8 @@ void setup(void)
   }
   SI5351.setPower(0,SIOUT_8mA);
   SI5351.setPower(1,SIOUT_8mA);
-  const uint32_t fre = radio.frequency+CRYSTAL_CENTRE;
-  const uint32_t bfo = CRYSTAL_CENTRE+IF_CENTRE;
+  const uint32_t fre = radio.ifshift+radio.frequency+CRYSTAL_CENTRE;
+  const uint32_t bfo = radio.ifshift+CRYSTAL_CENTRE+IF_CENTRE;
   SI5351.setFreq(1,fre);
   SI5351.setFreq(0,bfo);
   SI5351.reset();
@@ -860,15 +875,39 @@ static void show_spectrum(void)
   }
 
   // draw the spectrum
-  for (uint32_t x=0;x<LCD_WIDTH-1;x++)
+  if (radio.spectype==SPECTRUM_WIND)
   {
-    const int32_t v0 = water[wp][x];
-    const int32_t v1 = water[wp][x+1];
-    const int32_t x0 = x;
-    const int32_t y0 = POS_WATER_Y+31-v0;
-    const int32_t x1 = x+1;
-    const int32_t y1 = POS_WATER_Y+31-v1;
-    lcd.drawLine(x0,y0,x1,y1,LCD_WHITE);
+    for (uint32_t x=0;x<LCD_WIDTH-1;x++)
+    {
+      const int32_t v0 = water[wp][x];
+      const int32_t v1 = water[wp][x+1];
+      const int32_t x0 = x;
+      const int32_t y0 = POS_WATER_Y+31-v0;
+      const int32_t x1 = x+1;
+      const int32_t y1 = POS_WATER_Y+31-v1;
+      lcd.drawLine(x0,y0,x1,y1,LCD_WHITE);
+    }
+  }
+  else
+  {
+    // SPECTRUM_GRASS
+    for (uint32_t x=0;x<LCD_WIDTH;x++)
+    {
+      /*
+      // single colour grass
+      const int32_t x0 = x;
+      const int32_t y0 = POS_WATER_Y+31;
+      const int32_t x1 = x;
+      const int32_t y1 = POS_WATER_Y+31-water[wp][x];
+      lcd.drawLine(x0,y0,x1,y1,LCD_WHITE);
+      */
+      const int32_t x0 = x;
+      const int32_t y0 = POS_WATER_Y;
+      const int32_t x1 = x;
+      const int32_t y1 = POS_WATER_Y+30-water[wp][x];
+      lcd.fillRectVGradient(x,POS_WATER_Y,1,32,LCD_RED,LCD_YELLOW);
+      lcd.drawLine(x0,y0,x1,y1,LCD_BLACK);
+    }
   }
 
   // draw the waterfall
@@ -1341,12 +1380,18 @@ static void process_ssb_tx(void)
   }
 }
 
+static void cw_delay(const uint32_t ms,const uint32_t level)
+{
+  const uint32_t delay_time = millis()+ms;
+  update_display(level);
+  while (delay_time>millis())
+  {
+    tight_loop_contents();
+  }
+}
+
 static void process_key(void)
 {
-  // mute the receiver
-////
-  //analogWrite(PIN_MUTE,LOW);
-
   // disable RX
   digitalWrite(PIN_RX,LOW);
 
@@ -1371,7 +1416,6 @@ static void process_key(void)
       update_display(15u);
       while (digitalRead(PIN_PTT)==LOW)
       {
-        delay(20);
         update_display(15u);
       }
       // indicate PTT released
@@ -1383,10 +1427,10 @@ static void process_key(void)
     if (digitalRead(PIN_PADA)==LOW)
     {
       // dit
-      delay(radio.cw_dit);
+      cw_delay(radio.cw_dit,0u);
       radio.keydown = true;
       digitalWrite(LED_BUILTIN,HIGH);
-      delay(radio.cw_dit);
+      cw_delay(radio.cw_dit,15u);
       radio.keydown = false;
       digitalWrite(LED_BUILTIN,LOW);
       cw_timeout = millis() + CW_TIMEOUT;
@@ -1394,10 +1438,10 @@ static void process_key(void)
     if (digitalRead(PIN_PADB)==LOW)
     {
       // dah
-      delay(radio.cw_dit);
+      cw_delay(radio.cw_dit,0u);
       radio.keydown = true;
       digitalWrite(LED_BUILTIN,HIGH);
-      delay(radio.cw_dit * 3);
+      cw_delay(radio.cw_dit * 3, 15u);
       radio.keydown = false;
       digitalWrite(LED_BUILTIN,LOW);
       cw_timeout = millis() + CW_TIMEOUT;
@@ -1405,17 +1449,17 @@ static void process_key(void)
     if (digitalRead(PIN_PADA)==LOW && digitalRead(PIN_PADB)==LOW)
     {
       // dit
-      delay(radio.cw_dit);
+      cw_delay(radio.cw_dit,0u);
       radio.keydown = true;
       digitalWrite(LED_BUILTIN,HIGH);
-      delay(radio.cw_dit);
+      cw_delay(radio.cw_dit,15u);
       radio.keydown = false;
       digitalWrite(LED_BUILTIN,LOW);
       // dah
-      delay(radio.cw_dit);
+      cw_delay(radio.cw_dit,0u);
       radio.keydown = true;
       digitalWrite(LED_BUILTIN,HIGH);
-      delay(radio.cw_dit * 3);
+      cw_delay(radio.cw_dit * 3,15u);
       radio.keydown = false;
       digitalWrite(LED_BUILTIN,LOW);
       cw_timeout = millis() + CW_TIMEOUT;
@@ -1425,6 +1469,9 @@ static void process_key(void)
       break;
     }
   }
+
+  // mute during transition back to receive
+  digitalWrite(PIN_MUTE,LOW);
 }
 
 static const radio_mode_t get_mode_auto(void)
@@ -1458,7 +1505,7 @@ static const radio_mode_t get_mode_auto(void)
 
 static void set_frequency(void)
 {
-  const uint32_t f = (radio.frequency+CRYSTAL_CENTRE);
+  const uint32_t f = (radio.frequency+CRYSTAL_CENTRE+radio.ifshift);
   SI5351.setFreq(1,f);
 }
 
@@ -1470,6 +1517,8 @@ void loop1(void)
   static uint32_t old_sidetone = radio.sidetone;
   static uint32_t old_cw_level = radio.cw_level;
   static uint32_t old_cw_dit = radio.cw_dit;
+  static uint32_t old_spectype = radio.spectype;
+  static int32_t old_ifshift = radio.ifshift;
   static mode_t old_mode = radio.mode;
 
   // process button press
@@ -1488,43 +1537,53 @@ void loop1(void)
       const option_value_t option = process_menu();
       switch (option)
       {
-        case OPTION_MODE_LSB:     radio.mode = MODE_LSB; radio.mode_auto = false; break;
-        case OPTION_MODE_USB:     radio.mode = MODE_USB; radio.mode_auto = false; break;
-        case OPTION_MODE_CWL:     radio.mode = MODE_CWL; radio.mode_auto = false; break;
-        case OPTION_MODE_CWU:     radio.mode = MODE_CWU; radio.mode_auto = false; break;
-        case OPTION_MODE_AUTO:    radio.mode_auto = true;                         break;
-        case OPTION_STEP_10:      radio.step = 10U;                               break;
-        case OPTION_STEP_100:     radio.step = 100U;                              break;
-        case OPTION_STEP_500:     radio.step = 500U;                              break;
-        case OPTION_STEP_1000:    radio.step = 1000U;                             break;
-        case OPTION_STEP_10000:   radio.step = 10000U;                            break;
-        case OPTION_BAND_80M:     radio.band = BAND_80M;                          break;
-        case OPTION_BAND_40M:     radio.band = BAND_40M;                          break;
-        case OPTION_BAND_30M:     radio.band = BAND_30M;                          break;
-        case OPTION_BAND_20M:     radio.band = BAND_20M;                          break;
-        case OPTION_BAND_17M:     radio.band = BAND_17M;                          break;
-        case OPTION_BAND_15M:     radio.band = BAND_15M;                          break;
-        case OPTION_BAND_12M:     radio.band = BAND_12M;                          break;
-        case OPTION_BAND_10M:     radio.band = BAND_10M;                          break;
-        case OPTION_SIDETONE_500: radio.sidetone = 500u;                          break;
-        case OPTION_SIDETONE_550: radio.sidetone = 550u;                          break;
-        case OPTION_SIDETONE_600: radio.sidetone = 600u;                          break;
-        case OPTION_SIDETONE_650: radio.sidetone = 650u;                          break;
-        case OPTION_SIDETONE_700: radio.sidetone = 700u;                          break;
-        case OPTION_SIDETONE_750: radio.sidetone = 750u;                          break;
-        case OPTION_SIDETONE_800: radio.sidetone = 800u;                          break;
-        case OPTION_SIDETONE_850: radio.sidetone = 850u;                          break;
-        case OPTION_SIDETONE_LOW: radio.cw_level = 1u;                            break;
-        case OPTION_SIDETONE_MED: radio.cw_level = 2u;                            break;
-        case OPTION_SIDETONE_HI:  radio.cw_level = 3u;                            break;
-        case OPTION_CW_SPEED_10:  radio.cw_dit = 120u;                            break;
-        case OPTION_CW_SPEED_15:  radio.cw_dit = 80u;                             break;
-        case OPTION_CW_SPEED_20:  radio.cw_dit = 60u;                             break;
-        case OPTION_CW_SPEED_25:  radio.cw_dit = 48u;                             break;
-        case OPTION_CW_SPEED_30:  radio.cw_dit = 40u;                             break;
-        case OPTION_GAUSSIAN_ON:  radio.gaussian = true;                          break; 
-        case OPTION_GAUSSIAN_OFF: radio.gaussian = false;                         break; 
-        case OPTION_EXIT:         radio.menu_active = false;                      break; 
+        case OPTION_MODE_LSB:       radio.mode = MODE_LSB; radio.mode_auto = false; break;
+        case OPTION_MODE_USB:       radio.mode = MODE_USB; radio.mode_auto = false; break;
+        case OPTION_MODE_CWL:       radio.mode = MODE_CWL; radio.mode_auto = false; break;
+        case OPTION_MODE_CWU:       radio.mode = MODE_CWU; radio.mode_auto = false; break;
+        case OPTION_MODE_AUTO:      radio.mode_auto = true;                         break;
+        case OPTION_STEP_10:        radio.step = 10U;                               break;
+        case OPTION_STEP_100:       radio.step = 100U;                              break;
+        case OPTION_STEP_500:       radio.step = 500U;                              break;
+        case OPTION_STEP_1000:      radio.step = 1000U;                             break;
+        case OPTION_STEP_10000:     radio.step = 10000U;                            break;
+        case OPTION_BAND_80M:       radio.band = BAND_80M;                          break;
+        case OPTION_BAND_40M:       radio.band = BAND_40M;                          break;
+        case OPTION_BAND_30M:       radio.band = BAND_30M;                          break;
+        case OPTION_BAND_20M:       radio.band = BAND_20M;                          break;
+        case OPTION_BAND_17M:       radio.band = BAND_17M;                          break;
+        case OPTION_BAND_15M:       radio.band = BAND_15M;                          break;
+        case OPTION_BAND_12M:       radio.band = BAND_12M;                          break;
+        case OPTION_BAND_10M:       radio.band = BAND_10M;                          break;
+        case OPTION_SIDETONE_500:   radio.sidetone = 500u;                          break;
+        case OPTION_SIDETONE_550:   radio.sidetone = 550u;                          break;
+        case OPTION_SIDETONE_600:   radio.sidetone = 600u;                          break;
+        case OPTION_SIDETONE_650:   radio.sidetone = 650u;                          break;
+        case OPTION_SIDETONE_700:   radio.sidetone = 700u;                          break;
+        case OPTION_SIDETONE_750:   radio.sidetone = 750u;                          break;
+        case OPTION_SIDETONE_800:   radio.sidetone = 800u;                          break;
+        case OPTION_SIDETONE_850:   radio.sidetone = 850u;                          break;
+        case OPTION_SIDETONE_LOW:   radio.cw_level = 1u;                            break;
+        case OPTION_SIDETONE_MED:   radio.cw_level = 2u;                            break;
+        case OPTION_SIDETONE_HI:    radio.cw_level = 3u;                            break;
+        case OPTION_CW_SPEED_10:    radio.cw_dit = 120u;                            break;
+        case OPTION_CW_SPEED_15:    radio.cw_dit = 80u;                             break;
+        case OPTION_CW_SPEED_20:    radio.cw_dit = 60u;                             break;
+        case OPTION_CW_SPEED_25:    radio.cw_dit = 48u;                             break;
+        case OPTION_CW_SPEED_30:    radio.cw_dit = 40u;                             break;
+        case OPTION_IFSHIFT_200N:   radio.ifshift = -200;                           break;
+        case OPTION_IFSHIFT_100N:   radio.ifshift = -100;                           break;
+        case OPTION_IFSHIFT_50N:    radio.ifshift = -50;                            break;
+        case OPTION_IFSHIFT_0:      radio.ifshift = 0;                              break;
+        case OPTION_IFSHIFT_50P:    radio.ifshift = +50;                            break;
+        case OPTION_IFSHIFT_100P:   radio.ifshift = +100;                           break;
+        case OPTION_IFSHIFT_150P:   radio.ifshift = +150;                           break;
+        case OPTION_IFSHIFT_200P:   radio.ifshift = +200;                           break;
+        case OPTION_SPECTRUM_WIND:  radio.spectype = SPECTRUM_WIND;                 break; 
+        case OPTION_SPECTRUM_GRASS: radio.spectype = SPECTRUM_GRASS;                break; 
+        case OPTION_GAUSSIAN_ON:    radio.gaussian = true;                          break; 
+        case OPTION_GAUSSIAN_OFF:   radio.gaussian = false;                         break; 
+        case OPTION_EXIT:           radio.menu_active = false;                      break; 
       }
 
       // when settings change save them
@@ -1554,6 +1613,23 @@ void loop1(void)
       if (radio.cw_level != old_cw_level)
       {
         old_cw_level = radio.cw_level;
+        settings_changed = true;
+      }
+
+      // IF shift
+      if (radio.ifshift != old_ifshift)
+      {
+        old_ifshift = radio.ifshift;
+        settings_changed = true;
+        const uint32_t bfo = radio.ifshift+CRYSTAL_CENTRE+IF_CENTRE;
+        SI5351.setFreq(0,bfo);
+        set_frequency();
+      }
+
+      // spectrum type
+      if (radio.spectype != old_spectype)
+      {
+        old_spectype = radio.spectype;
         settings_changed = true;
       }
 
@@ -1709,13 +1785,12 @@ void loop1(void)
     }
     else if (b_PTT)
     {
-
       process_ssb_tx();
     }
     // back to receive
     digitalWrite(PIN_TX,LOW);
     radio.tx_enable = false;
-    delay(50);
+    delay(10);
     digitalWrite(PIN_RX,HIGH);
     delay(10);
     digitalWrite(LED_BUILTIN,LOW);

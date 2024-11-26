@@ -2187,6 +2187,9 @@ static const int16_t __not_in_flash_func(process_cw_rx)(const int16_t s,const ui
   v = bpf_500_1500_cw(v<<1);
 
   // extra gain for CW
+  v <<= 1;
+
+  // noise reduction
   v = ma_order_4(v<<1);
   
   // AGC will fix it
