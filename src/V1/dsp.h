@@ -3,7 +3,8 @@
 
 #include "util.h"
 
-#define MOVING_AVERAGE_LENGTH 16
+#define MOVING_AVERAGE_LENGTH 16u
+#define JNR_FILTER_LENGTH 8u
 #define FIR_LENGTH 256
 #define __mac_tap(_h) acc += (_h)*x[i++]
 #define __mac_zap(_h) i++
@@ -642,6 +643,430 @@ static const int16_t __not_in_flash_func(bpf_500_1500_cw)(const int16_t sample)
   __mac_tap(-4);
   __mac_tap(-3);
   __mac_tap(-2);
+  return (int16_t)(acc >> 15);
+}
+
+static const int16_t __not_in_flash_func(bpf_fs4_am)(const int16_t sample)
+{
+  // 31248, 60dB, 6KHz @ FS/4, 201 taps
+  static int32_t x[FIR_LENGTH] = { 0 };
+  static uint8_t sample_index = 0;
+  uint8_t i = sample_index;
+  x[sample_index--] = sample;
+  int32_t acc = 0;
+  __mac_tap(-3);
+  __mac_tap(0);
+  __mac_tap(-3);
+  __mac_tap(0);
+  __mac_tap(8);
+  __mac_tap(0);
+  __mac_tap(-2);
+  __mac_tap(0);
+  __mac_tap(-11);
+  __mac_tap(0);
+  __mac_tap(12);
+  __mac_tap(0);
+  __mac_tap(6);
+  __mac_tap(0);
+  __mac_tap(-22);
+  __mac_tap(0);
+  __mac_tap(10);
+  __mac_tap(0);
+  __mac_tap(22);
+  __mac_tap(0);
+  __mac_tap(-32);
+  __mac_tap(0);
+  __mac_tap(-3);
+  __mac_tap(0);
+  __mac_tap(46);
+  __mac_tap(0);
+  __mac_tap(-33);
+  __mac_tap(0);
+  __mac_tap(-33);
+  __mac_tap(0);
+  __mac_tap(70);
+  __mac_tap(0);
+  __mac_tap(-14);
+  __mac_tap(0);
+  __mac_tap(-77);
+  __mac_tap(0);
+  __mac_tap(80);
+  __mac_tap(0);
+  __mac_tap(33);
+  __mac_tap(0);
+  __mac_tap(-126);
+  __mac_tap(0);
+  __mac_tap(59);
+  __mac_tap(0);
+  __mac_tap(109);
+  __mac_tap(0);
+  __mac_tap(-158);
+  __mac_tap(0);
+  __mac_tap(-9);
+  __mac_tap(0);
+  __mac_tap(201);
+  __mac_tap(0);
+  __mac_tap(-146);
+  __mac_tap(0);
+  __mac_tap(-129);
+  __mac_tap(0);
+  __mac_tap(278);
+  __mac_tap(0);
+  __mac_tap(-62);
+  __mac_tap(0);
+  __mac_tap(-287);
+  __mac_tap(0);
+  __mac_tap(300);
+  __mac_tap(0);
+  __mac_tap(112);
+  __mac_tap(0);
+  __mac_tap(-451);
+  __mac_tap(0);
+  __mac_tap(218);
+  __mac_tap(0);
+  __mac_tap(376);
+  __mac_tap(0);
+  __mac_tap(-562);
+  __mac_tap(0);
+  __mac_tap(-16);
+  __mac_tap(0);
+  __mac_tap(706);
+  __mac_tap(0);
+  __mac_tap(-542);
+  __mac_tap(0);
+  __mac_tap(-452);
+  __mac_tap(0);
+  __mac_tap(1056);
+  __mac_tap(0);
+  __mac_tap(-274);
+  __mac_tap(0);
+  __mac_tap(-1176);
+  __mac_tap(0);
+  __mac_tap(1368);
+  __mac_tap(0);
+  __mac_tap(505);
+  __mac_tap(0);
+  __mac_tap(-2549);
+  __mac_tap(0);
+  __mac_tap(1584);
+  __mac_tap(0);
+  __mac_tap(3459);
+  __mac_tap(0);
+  __mac_tap(-9736);
+  __mac_tap(0);
+  __mac_tap(12584);
+  __mac_tap(0);
+  __mac_tap(-9736);
+  __mac_tap(0);
+  __mac_tap(3459);
+  __mac_tap(0);
+  __mac_tap(1584);
+  __mac_tap(0);
+  __mac_tap(-2549);
+  __mac_tap(0);
+  __mac_tap(505);
+  __mac_tap(0);
+  __mac_tap(1368);
+  __mac_tap(0);
+  __mac_tap(-1176);
+  __mac_tap(0);
+  __mac_tap(-274);
+  __mac_tap(0);
+  __mac_tap(1056);
+  __mac_tap(0);
+  __mac_tap(-452);
+  __mac_tap(0);
+  __mac_tap(-542);
+  __mac_tap(0);
+  __mac_tap(706);
+  __mac_tap(0);
+  __mac_tap(-16);
+  __mac_tap(0);
+  __mac_tap(-562);
+  __mac_tap(0);
+  __mac_tap(376);
+  __mac_tap(0);
+  __mac_tap(218);
+  __mac_tap(0);
+  __mac_tap(-451);
+  __mac_tap(0);
+  __mac_tap(112);
+  __mac_tap(0);
+  __mac_tap(300);
+  __mac_tap(0);
+  __mac_tap(-287);
+  __mac_tap(0);
+  __mac_tap(-62);
+  __mac_tap(0);
+  __mac_tap(278);
+  __mac_tap(0);
+  __mac_tap(-129);
+  __mac_tap(0);
+  __mac_tap(-146);
+  __mac_tap(0);
+  __mac_tap(201);
+  __mac_tap(0);
+  __mac_tap(-9);
+  __mac_tap(0);
+  __mac_tap(-158);
+  __mac_tap(0);
+  __mac_tap(109);
+  __mac_tap(0);
+  __mac_tap(59);
+  __mac_tap(0);
+  __mac_tap(-126);
+  __mac_tap(0);
+  __mac_tap(33);
+  __mac_tap(0);
+  __mac_tap(80);
+  __mac_tap(0);
+  __mac_tap(-77);
+  __mac_tap(0);
+  __mac_tap(-14);
+  __mac_tap(0);
+  __mac_tap(70);
+  __mac_tap(0);
+  __mac_tap(-33);
+  __mac_tap(0);
+  __mac_tap(-33);
+  __mac_tap(0);
+  __mac_tap(46);
+  __mac_tap(0);
+  __mac_tap(-3);
+  __mac_tap(0);
+  __mac_tap(-32);
+  __mac_tap(0);
+  __mac_tap(22);
+  __mac_tap(0);
+  __mac_tap(10);
+  __mac_tap(0);
+  __mac_tap(-22);
+  __mac_tap(0);
+  __mac_tap(6);
+  __mac_tap(0);
+  __mac_tap(12);
+  __mac_tap(0);
+  __mac_tap(-11);
+  __mac_tap(0);
+  __mac_tap(-2);
+  __mac_tap(0);
+  __mac_tap(8);
+  __mac_tap(0);
+  __mac_tap(-3);
+  __mac_tap(0);
+  __mac_tap(-3);
+  return (int16_t)(acc >> 15);
+}
+
+static const int16_t __not_in_flash_func(lpf_fs8_rx)(const int16_t sample)
+{
+  // nominal 31250 sample rate
+  static int32_t x[FIR_LENGTH] = { 0 };
+  static uint8_t sample_index = 0;
+  uint8_t i = sample_index;
+  x[sample_index--] = sample;
+  int32_t acc = 0;
+  __mac_tap(0);
+  __mac_tap(2);
+  __mac_tap(3);
+  __mac_tap(2);
+  __mac_tap(0);
+  __mac_tap(-3);
+  __mac_tap(-5);
+  __mac_tap(-4);
+  __mac_tap(0);
+  __mac_tap(5);
+  __mac_tap(8);
+  __mac_tap(6);
+  __mac_tap(0);
+  __mac_tap(-7);
+  __mac_tap(-11);
+  __mac_tap(-8);
+  __mac_tap(0);
+  __mac_tap(10);
+  __mac_tap(15);
+  __mac_tap(12);
+  __mac_tap(0);
+  __mac_tap(-14);
+  __mac_tap(-21);
+  __mac_tap(-16);
+  __mac_tap(0);
+  __mac_tap(18);
+  __mac_tap(27);
+  __mac_tap(21);
+  __mac_tap(0);
+  __mac_tap(-24);
+  __mac_tap(-35);
+  __mac_tap(-27);
+  __mac_tap(0);
+  __mac_tap(30);
+  __mac_tap(45);
+  __mac_tap(34);
+  __mac_tap(0);
+  __mac_tap(-38);
+  __mac_tap(-57);
+  __mac_tap(-42);
+  __mac_tap(0);
+  __mac_tap(47);
+  __mac_tap(70);
+  __mac_tap(52);
+  __mac_tap(0);
+  __mac_tap(-58);
+  __mac_tap(-86);
+  __mac_tap(-64);
+  __mac_tap(0);
+  __mac_tap(71);
+  __mac_tap(106);
+  __mac_tap(78);
+  __mac_tap(0);
+  __mac_tap(-86);
+  __mac_tap(-128);
+  __mac_tap(-95);
+  __mac_tap(0);
+  __mac_tap(105);
+  __mac_tap(155);
+  __mac_tap(115);
+  __mac_tap(0);
+  __mac_tap(-126);
+  __mac_tap(-187);
+  __mac_tap(-139);
+  __mac_tap(0);
+  __mac_tap(153);
+  __mac_tap(226);
+  __mac_tap(168);
+  __mac_tap(0);
+  __mac_tap(-185);
+  __mac_tap(-275);
+  __mac_tap(-204);
+  __mac_tap(0);
+  __mac_tap(226);
+  __mac_tap(336);
+  __mac_tap(251);
+  __mac_tap(0);
+  __mac_tap(-280);
+  __mac_tap(-418);
+  __mac_tap(-313);
+  __mac_tap(0);
+  __mac_tap(354);
+  __mac_tap(533);
+  __mac_tap(403);
+  __mac_tap(0);
+  __mac_tap(-464);
+  __mac_tap(-708);
+  __mac_tap(-543);
+  __mac_tap(0);
+  __mac_tap(650);
+  __mac_tap(1017);
+  __mac_tap(803);
+  __mac_tap(0);
+  __mac_tap(-1040);
+  __mac_tap(-1722);
+  __mac_tap(-1466);
+  __mac_tap(0);
+  __mac_tap(2453);
+  __mac_tap(5210);
+  __mac_tap(7373);
+  __mac_tap(8192);
+  __mac_tap(7373);
+  __mac_tap(5210);
+  __mac_tap(2453);
+  __mac_tap(0);
+  __mac_tap(-1466);
+  __mac_tap(-1722);
+  __mac_tap(-1040);
+  __mac_tap(0);
+  __mac_tap(803);
+  __mac_tap(1017);
+  __mac_tap(650);
+  __mac_tap(0);
+  __mac_tap(-543);
+  __mac_tap(-708);
+  __mac_tap(-464);
+  __mac_tap(0);
+  __mac_tap(403);
+  __mac_tap(533);
+  __mac_tap(354);
+  __mac_tap(0);
+  __mac_tap(-313);
+  __mac_tap(-418);
+  __mac_tap(-280);
+  __mac_tap(0);
+  __mac_tap(251);
+  __mac_tap(336);
+  __mac_tap(226);
+  __mac_tap(0);
+  __mac_tap(-204);
+  __mac_tap(-275);
+  __mac_tap(-185);
+  __mac_tap(0);
+  __mac_tap(168);
+  __mac_tap(226);
+  __mac_tap(153);
+  __mac_tap(0);
+  __mac_tap(-139);
+  __mac_tap(-187);
+  __mac_tap(-126);
+  __mac_tap(0);
+  __mac_tap(115);
+  __mac_tap(155);
+  __mac_tap(105);
+  __mac_tap(0);
+  __mac_tap(-95);
+  __mac_tap(-128);
+  __mac_tap(-86);
+  __mac_tap(0);
+  __mac_tap(78);
+  __mac_tap(106);
+  __mac_tap(71);
+  __mac_tap(0);
+  __mac_tap(-64);
+  __mac_tap(-86);
+  __mac_tap(-58);
+  __mac_tap(0);
+  __mac_tap(52);
+  __mac_tap(70);
+  __mac_tap(47);
+  __mac_tap(0);
+  __mac_tap(-42);
+  __mac_tap(-57);
+  __mac_tap(-38);
+  __mac_tap(0);
+  __mac_tap(34);
+  __mac_tap(45);
+  __mac_tap(30);
+  __mac_tap(0);
+  __mac_tap(-27);
+  __mac_tap(-35);
+  __mac_tap(-24);
+  __mac_tap(0);
+  __mac_tap(21);
+  __mac_tap(27);
+  __mac_tap(18);
+  __mac_tap(0);
+  __mac_tap(-16);
+  __mac_tap(-21);
+  __mac_tap(-14);
+  __mac_tap(0);
+  __mac_tap(12);
+  __mac_tap(15);
+  __mac_tap(10);
+  __mac_tap(0);
+  __mac_tap(-8);
+  __mac_tap(-11);
+  __mac_tap(-7);
+  __mac_tap(0);
+  __mac_tap(6);
+  __mac_tap(8);
+  __mac_tap(5);
+  __mac_tap(0);
+  __mac_tap(-4);
+  __mac_tap(-5);
+  __mac_tap(-3);
+  __mac_tap(0);
+  __mac_tap(2);
+  __mac_tap(3);
+  __mac_tap(2);
+  __mac_tap(0);
   return (int16_t)(acc >> 15);
 }
 
@@ -2089,7 +2514,7 @@ static const uint32_t __not_in_flash_func(get_mic_peak_level)(const int16_t mic_
   return mic_peak_level;
 }
 
-const int16_t __not_in_flash_func(process_mic)(const int16_t s,const bool mode_LSB)
+const int16_t __not_in_flash_func(process_ssb_tx)(const int16_t s,const bool mode_LSB)
 {
   // generate an SSB signal at FS/4 (7812 Hz)
   // 1. bandpass filter (300 - 2400)
@@ -2102,22 +2527,54 @@ const int16_t __not_in_flash_func(process_mic)(const int16_t s,const bool mode_L
   const uint8_t phase = bfo & 0x03;
   bfo++;
 
-  // 2400Hz LPF ( s>>3 = 5 Watts)
-  // 2400Hz LPF ( s>>2 = 10 Watts)
-  //const int16_t lpf2400 = bpf_300_2400(dc(s>>1));
-  const int16_t lpf2400 = bpf_300_2400_tx(s);
+  // bandpass filter mic signal
+  const int16_t bpf2400 = bpf_300_2400_tx(s);
 
   // up convert to FS/4
   // note LO signal reduces to 0, 1 and -1 at FS/4
   int16_t v = 0;
   switch (phase)
   {
-    case 0: v = +lpf2400; break;
-    case 2: v = -lpf2400; break;
+    case 0: v = +bpf2400; break;
+    case 2: v = -bpf2400; break;
   }
 
   // remove the unwanted sideband
   v = mode_LSB?lpf_fs4_tx(v):hpf_fs4_tx(v);
+
+  // ALC
+  v = (int16_t)(((int32_t)v * alc) >> 8);
+  if (abs(v)>511) alc--;
+
+  return v;
+}
+
+const int16_t __not_in_flash_func(process_am_tx)(const int16_t s)
+{
+  // generate an AM signal at FS/4 (7812 Hz)
+  // 1. bandpass filter (300 - 2400)
+  // 2. Add DC
+  // 2. upconvert to FS/4 (mix with BFO at FS/4)
+  volatile static int32_t alc = 256L;
+
+  // BFO oscillates
+  static uint8_t bfo = 0;
+  const uint8_t phase = bfo & 0x03;
+  bfo++;
+
+  // setup DC bias for AM
+  static const int16_t DC = 256l;
+
+  // bandpass filter
+  const int16_t bpf2400 = bpf_300_2400_tx(s>>5) + DC;
+
+  // up convert to FS/4
+  int16_t v = 0;
+  switch (phase)
+  {
+    case 0: v = +bpf2400; break;
+    case 2: v = -bpf2400; break;
+  }
 
   // ALC
   v = (int16_t)(((int32_t)v * alc) >> 8);
@@ -2235,6 +2692,86 @@ static const int16_t __not_in_flash_func(process_ssb_rx)(const int16_t s,const b
   if (higain) v <<= 1;
   v = agc(v);
   return v;
+}
+
+static const int16_t __not_in_flash_func(process_am_rx)(const int16_t s,const bool higain)
+{
+  // demodulate an AM signal at FS/4 (7812 Hz)
+  // 1. bandpass filter AM signal (6KHz)
+  // 2. down-convert to baseband (mix with BFO at FS/4 - note, this reduces to ABS()!)
+  // 3. get magnitude of IQ signal (AM)
+  // 4. remove DC bias
+  // 5. filter out carrier
+
+  // bandpass AM signal
+  int16_t v = bpf_fs4_am(s);
+
+  // quadrature mixer and magnitude (rectify)!
+  v = abs(v);
+
+  // remove DC and filter
+  v = lpf_fs8_rx(dc(v));
+
+  // more gain on higher bands
+  if (higain) v <<= 1;
+  v = agc(v);
+  return v;
+}
+
+static const int16_t __not_in_flash_func(jnr_maf1)(const int16_t v)
+{
+  static int16_t element[JNR_FILTER_LENGTH] = {0};
+  static uint8_t p = 0;
+  static int32_t sum = 0;
+  sum = sum - element[p] + v;
+  element[p++] = v;
+  p &= (JNR_FILTER_LENGTH-1);
+  return sum/JNR_FILTER_LENGTH;
+}
+
+static const int16_t __not_in_flash_func(jnr_maf2)(const int16_t v)
+{
+  static int16_t element[JNR_FILTER_LENGTH] = {0};
+  static uint8_t p = 0;
+  static int32_t sum = 0;
+  sum = sum - element[p] + v;
+  element[p++] = v;
+  p &= (JNR_FILTER_LENGTH-1);
+  return sum/JNR_FILTER_LENGTH;
+}
+
+static const int16_t __not_in_flash_func(jnr_maf3)(const int16_t v)
+{
+  static int16_t element[JNR_FILTER_LENGTH] = {0};
+  static uint8_t p = 0;
+  static int32_t sum = 0;
+  sum = sum - element[p] + v;
+  element[p++] = v;
+  p &= (JNR_FILTER_LENGTH-1);
+  return sum/JNR_FILTER_LENGTH;
+}
+
+static const int16_t __not_in_flash_func(jnr_maf4)(const int16_t v)
+{
+  static int16_t element[JNR_FILTER_LENGTH] = {0};
+  static uint8_t p = 0;
+  static int32_t sum = 0;
+  sum = sum - element[p] + v;
+  element[p++] = v;
+  p &= (JNR_FILTER_LENGTH-1);
+  return sum/JNR_FILTER_LENGTH;
+}
+
+static const int16_t __not_in_flash_func(jnr)(const int16_t s,const uint32_t level)
+{
+  // just noise reduction (not dynamic)
+  switch (level)
+  {
+    case 1: return jnr_maf1(s);
+    case 2: return jnr_maf2(jnr_maf1(s));
+    case 3: return jnr_maf4(jnr_maf3(jnr_maf2(jnr_maf1(s))));
+  }
+  return s;
 }
 
 #endif

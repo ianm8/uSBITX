@@ -25,12 +25,14 @@
     ...
     Exit
 
+  ...
+
   Exit
     Exit
 
 */
 
-#define NUM_MENU_ITEMS 10U
+#define NUM_MENU_ITEMS 11U
 #define NUM_MENU_OPTIONS 9U
 
 enum menu_top_t
@@ -43,6 +45,7 @@ enum menu_top_t
   MENU_SIDETONE_LEVEL,
   MENU_IFSHIFT,
   MENU_SPECTRUM_TYPE,
+  MENU_JNR,
   MENU_GAUSSIAN,
   MENU_EXIT
 };
@@ -58,6 +61,7 @@ enum option_value_t
   OPTION_MODE_LSB,
   OPTION_MODE_CWL,
   OPTION_MODE_CWU,
+  OPTION_MODE_AM,
   OPTION_MODE_AUTO,
   OPTION_BAND_80M,
   OPTION_BAND_40M,
@@ -95,6 +99,10 @@ enum option_value_t
   OPTION_IFSHIFT_200P,
   OPTION_SPECTRUM_WIND,
   OPTION_SPECTRUM_GRASS,
+  OPTION_JNR_OFF,
+  OPTION_JNR_LEVEL1,
+  OPTION_JNR_LEVEL2,
+  OPTION_JNR_LEVEL3,
   OPTION_NONE,
   OPTION_EXIT
 };
@@ -149,13 +157,29 @@ menu_options[NUM_MENU_ITEMS] =
   {
     MENU_MODE,
     "Mode",
-    8U,
+    7U,
     {
       {OPTION_MODE_LSB,"LSB"},
       {OPTION_MODE_USB,"USB"},
       {OPTION_MODE_CWL,"CWL"},
       {OPTION_MODE_CWU,"CWU"},
+      {OPTION_MODE_AM,"AM"},
       {OPTION_MODE_AUTO,"AUTO"},
+      {OPTION_EXIT,"Exit"},
+      {OPTION_EXIT,"Exit"},
+      {OPTION_EXIT,"Exit"}
+    }
+  },
+  {
+    MENU_MODE,
+    "JNR",
+    4U,
+    {
+      {OPTION_JNR_LEVEL1,"Level 1"},
+      {OPTION_JNR_LEVEL2,"Level 2"},
+      {OPTION_JNR_LEVEL3,"Level 3"},
+      {OPTION_JNR_OFF,"Off"},
+      {OPTION_EXIT,"Exit"},
       {OPTION_EXIT,"Exit"},
       {OPTION_EXIT,"Exit"},
       {OPTION_EXIT,"Exit"},

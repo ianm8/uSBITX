@@ -1,5 +1,5 @@
 /*
- * uSBITX Version 1.1.225
+ * uSBITX Version 1.3.225
  *
  * Copyright 2024 Ian Mitchell VK7IAN
  * Licenced under the GNU GPL Version 3
@@ -36,6 +36,9 @@
  *  1.1.225 add spectrum type (wind or grass)
  *  1.1.225 add IF shift
  *  1.1.225 CW transition to receive mute
+ *  1.2.225 add AM mode
+ *  1.2.225 add noise reduction
+ *  1.3.225 show CW settings
  *
  */
 
@@ -56,7 +59,7 @@
 
 //#define YOUR_CALL "VK7IAN"
 
-#define VERSION_STRING "  V1.1."
+#define VERSION_STRING "  V1.3."
 #define CRYSTAL_CENTRE 39999500UL
 #define IF_CENTRE 7812UL
 #define CW_TIMEOUT 800u
@@ -128,6 +131,8 @@
 #define POS_BAND_Y         30
 #define POS_CPU_X         199
 #define POS_CPU_Y          30
+#define POS_JNR_X         199
+#define POS_JNR_Y          52
 #define POS_DEBUG_X        20
 #define POS_DEBUG_Y        50
 #define POS_ATT_X         190
@@ -144,6 +149,8 @@
 #define POS_SWR_Y          40
 #define POS_WATER_X         0
 #define POS_WATER_Y        62
+#define POS_CW_SETTINGS_X   0
+#define POS_CW_SETTINGS_Y  52
 #define POS_CENTER_LEFT   119
 #define POS_CENTER_RIGHT  120
 #define POS_MENU_X         40
@@ -153,6 +160,10 @@
 
 #define SPECTRUM_WIND  0u
 #define SPECTRUM_GRASS 1u
+#define JNR_OFF 0u
+#define JNR_LEVEL1 1u
+#define JNR_LEVEL2 2u
+#define JNR_LEVEL3 3u
 
 #if PIN_MIC == 26U
 #define MIC_MUX 0U
@@ -183,7 +194,8 @@ enum radio_mode_t
   MODE_LSB,
   MODE_USB,
   MODE_CWL,
-  MODE_CWU
+  MODE_CWU,
+  MODE_AM
 };
 
 auto_init_mutex(rotary_mutex);
@@ -208,6 +220,7 @@ volatile static struct
   uint32_t cw_bfo;
   uint32_t cw_phase;
   uint32_t spectype;
+  uint32_t jnrlevel;
   radio_mode_t mode;
   bool tx_enable;
   bool keydown;
@@ -229,6 +242,7 @@ radio =
   (uint32_t)(((uint64_t)(SAMPLERATE/4u - DEFAULT_SIDETONE) * (1ull << 32)) / SAMPLERATE),
   (uint32_t)(((uint64_t)DEFAULT_SIDETONE * (1ull << 32)) / SAMPLERATE),
   SPECTRUM_WIND,
+  JNR_OFF,
   DEFAULT_MODE,
   false,
   false,
@@ -238,6 +252,7 @@ radio =
   true
 };
 
+////
 static struct
 {
   const uint32_t lo;
@@ -246,7 +261,8 @@ static struct
 }
 bands[] =
 {
-  { 3500000UL,  3800000UL,  3600000UL},
+  //{ 3500000UL,  3800000UL,  3600000UL},
+  {  500000UL,  3800000UL,  3600000UL},
   { 7000000UL,  7300000UL,  7100000UL},
   {10100000UL, 10150000UL, 10120000UL},
   {14000000UL, 14350000UL, 14200000UL},
@@ -346,6 +362,7 @@ static void save_settings(void)
   EEPROM.put(5*sizeof(uint32_t),(uint32_t)radio.cw_phase);
   EEPROM.put(6*sizeof(uint32_t),(uint32_t)radio.ifshift);
   EEPROM.put(7*sizeof(uint32_t),(uint32_t)radio.spectype);
+  EEPROM.put(8*sizeof(uint32_t),(uint32_t)radio.jnrlevel);
   EEPROM.end();
 }
 
@@ -364,6 +381,7 @@ static void restore_settings(void)
     EEPROM.get(5*sizeof(uint32_t),data32); radio.cw_phase = data32;
     EEPROM.get(6*sizeof(uint32_t),data32); radio.ifshift = (int32_t)data32;
     EEPROM.get(7*sizeof(uint32_t),data32); radio.spectype = data32;
+    EEPROM.get(8*sizeof(uint32_t),data32); radio.jnrlevel = data32;
   }
   EEPROM.end();
 }
@@ -581,7 +599,22 @@ static void show_frequency(void)
   char sz_frequency[16] = "";
   memset(sz_frequency,0,sizeof(sz_frequency));
   ultoa(radio.frequency,sz_frequency,10);
-  if (radio.frequency<10000000u)
+  if (radio.frequency<1000000u)
+  {
+    // 6 digits
+    //            012 345
+    // 936000 ->  936.000
+    // 012345    01234567
+    sz_frequency[7] = sz_frequency[5];
+    sz_frequency[6] = sz_frequency[4];
+    sz_frequency[5] = sz_frequency[3];
+    sz_frequency[4] = '.';
+    sz_frequency[3] = sz_frequency[2];
+    sz_frequency[2] = sz_frequency[1];
+    sz_frequency[1] = sz_frequency[0];
+    sz_frequency[0] = ' ';
+  }
+  else if (radio.frequency<10000000u)
   {
     // 7 digits
     // 3555000 -> 3.555.000
@@ -644,11 +677,11 @@ static void show_swr(void)
   }
   const float vfwd = (float)fwdADC.read();
   const float vref = (float)refADC.read();
-  uint32_t vswr = 100;
+  uint32_t vswr = 100u;
   if (vfwd>vref)
   {
     vswr = (uint32_t)(100.0f * (vfwd + vref) / (vfwd - vref));
-    vswr = min(vswr,999);
+    vswr = min(vswr,999u);
   }
   if (vswr>max_vswr)
   {
@@ -749,6 +782,7 @@ static void show_mode(void)
     case MODE_USB: sz_mode = "USB"; break;
     case MODE_CWL: sz_mode = "CWL"; break;
     case MODE_CWU: sz_mode = "CWU"; break;
+    case MODE_AM:  sz_mode = "AM";  break;
   }
   lcd.print(sz_mode);
 }
@@ -799,6 +833,24 @@ static void show_cpu_usage(void)
   }
 }
 
+static void show_jnr(void)
+{
+  if (radio.jnrlevel==0)
+  {
+    return;
+  }
+  lcd.fillRect(POS_JNR_X-5,POS_JNR_Y-1,45,10,LCD_PURPLE);
+  lcd.setTextSize(1);
+  lcd.setTextColor(LCD_WHITE);
+  lcd.setCursor(POS_JNR_X,POS_JNR_Y);
+  switch (radio.jnrlevel)
+  {
+    case 1u: lcd.print("JNR:1"); break;
+    case 2u: lcd.print("JNR:2"); break;
+    case 3u: lcd.print("JNR:3"); break;
+  }
+}
+
 static void show_debug_value(const int32_t v)
 {
   if (v==0)
@@ -821,6 +873,38 @@ static void show_meter_dial(const uint8_t sig)
   for (uint8_t i=0;i<v;i++)
   {
     lcd.fillRect(POS_METER_X+i*5+0,POS_METER_Y+8,4,4,LCD_WHITE);
+  }
+}
+
+static void show_cw_settings(void)
+{
+  if (radio.mode==MODE_CWL || radio.mode==MODE_CWU)
+  {
+    lcd.setTextSize(1);
+    lcd.setTextColor(LCD_YELLOW);
+    lcd.setCursor(POS_CW_SETTINGS_X,POS_CW_SETTINGS_Y);
+    const char *sz_wpm = "";
+    switch (radio.cw_dit)
+    {
+      case 120u: sz_wpm = "10"; break;
+      case 80u:  sz_wpm = "15"; break;
+      case 60u:  sz_wpm = "20"; break;
+      case 48u:  sz_wpm = "25"; break;
+      case 40u:  sz_wpm = "30"; break;
+    }
+    lcd.print("WPM:");
+    lcd.print(sz_wpm);
+    const char *sz_level = "";
+    switch (radio.cw_level)
+    {
+      case 1u: sz_level = "LOW"; break;
+      case 2u: sz_level = "MED"; break;
+      case 3u: sz_level = "HI";  break;
+    }
+    lcd.print(" Level:");
+    lcd.print(sz_level);
+    lcd.print(" Sidetone:");
+    lcd.print(radio.sidetone);
   }
 }
 
@@ -863,6 +947,15 @@ static void show_spectrum(void)
       }
       break;
     }
+    case MODE_AM:
+    {
+      for (uint32_t x=0;x<40;x++)
+      {
+        lcd.drawLine(POS_CENTER_LEFT-x,POS_WATER_Y,POS_CENTER_LEFT-x,POS_WATER_Y+31,LCD_MODE);
+        lcd.drawLine(POS_CENTER_RIGHT+x,POS_WATER_Y,POS_CENTER_RIGHT+x,POS_WATER_Y+31,LCD_MODE);
+      }
+      break;
+    }
   }
 
   // max of two adjacent magnitudes
@@ -891,6 +984,7 @@ static void show_spectrum(void)
   else
   {
     // SPECTRUM_GRASS
+    lcd.fillRectVGradient(0,POS_WATER_Y,240,32,LCD_RED,LCD_YELLOW);
     for (uint32_t x=0;x<LCD_WIDTH;x++)
     {
       /*
@@ -905,7 +999,6 @@ static void show_spectrum(void)
       const int32_t y0 = POS_WATER_Y;
       const int32_t x1 = x;
       const int32_t y1 = POS_WATER_Y+30-water[wp][x];
-      lcd.fillRectVGradient(x,POS_WATER_Y,1,32,LCD_RED,LCD_YELLOW);
       lcd.drawLine(x0,y0,x1,y1,LCD_BLACK);
     }
   }
@@ -1020,6 +1113,8 @@ static void update_display(const uint32_t signal_level = 0u,const int32_t debug_
   show_tuning_step();
   show_swr();
   show_meter_dial(signal_level);
+  show_cw_settings();
+  show_jnr();
   show_spectrum();
   show_menu();
   show_debug_value(debug_value);
@@ -1232,9 +1327,19 @@ void loop(void)
           tx_value = CW::process_cw(radio.keydown,radio.gaussian);
           dac_audio = CW::get_sidetone(radio.keydown,radio.cw_phase,radio.cw_level)+2048;
         }
+        else if (radio.mode==MODE_LSB)
+        {
+          tx_value = process_ssb_tx(adc_value,true);
+          mic_peak_level = get_mic_peak_level(adc_value);
+        }
+        else if (radio.mode==MODE_USB)
+        {
+          tx_value = process_ssb_tx(adc_value,false);
+          mic_peak_level = get_mic_peak_level(adc_value);
+        }
         else
         {
-          tx_value = process_mic(adc_value,(radio.mode==MODE_LSB)?true:false);
+          tx_value = process_am_tx(adc_value);
           mic_peak_level = get_mic_peak_level(adc_value);
         }
         tx_value = constrain(tx_value,-512,+511);
@@ -1283,7 +1388,9 @@ void loop(void)
           case MODE_USB: rx_value = process_ssb_rx(adc_value,false,radio.higain);       break;
           case MODE_CWL: rx_value = process_cw_rx(adc_value,radio.cw_bfo,radio.higain); break;
           case MODE_CWU: rx_value = process_cw_rx(adc_value,radio.cw_bfo,radio.higain); break;
+          case MODE_AM:  rx_value = process_am_rx(adc_value,radio.higain);              break;
         }
+        rx_value = jnr(rx_value,radio.jnrlevel);
         dac_audio = constrain(rx_value,-2048,+2047)+2048;
 
         // only process rotary in receive mode
@@ -1518,6 +1625,7 @@ void loop1(void)
   static uint32_t old_cw_level = radio.cw_level;
   static uint32_t old_cw_dit = radio.cw_dit;
   static uint32_t old_spectype = radio.spectype;
+  static uint32_t old_jnrlevel = radio.jnrlevel;
   static int32_t old_ifshift = radio.ifshift;
   static mode_t old_mode = radio.mode;
 
@@ -1541,6 +1649,7 @@ void loop1(void)
         case OPTION_MODE_USB:       radio.mode = MODE_USB; radio.mode_auto = false; break;
         case OPTION_MODE_CWL:       radio.mode = MODE_CWL; radio.mode_auto = false; break;
         case OPTION_MODE_CWU:       radio.mode = MODE_CWU; radio.mode_auto = false; break;
+        case OPTION_MODE_AM:        radio.mode = MODE_AM;  radio.mode_auto = false; break;
         case OPTION_MODE_AUTO:      radio.mode_auto = true;                         break;
         case OPTION_STEP_10:        radio.step = 10U;                               break;
         case OPTION_STEP_100:       radio.step = 100U;                              break;
@@ -1581,6 +1690,10 @@ void loop1(void)
         case OPTION_IFSHIFT_200P:   radio.ifshift = +200;                           break;
         case OPTION_SPECTRUM_WIND:  radio.spectype = SPECTRUM_WIND;                 break; 
         case OPTION_SPECTRUM_GRASS: radio.spectype = SPECTRUM_GRASS;                break; 
+        case OPTION_JNR_LEVEL1:     radio.jnrlevel = JNR_LEVEL1;                    break; 
+        case OPTION_JNR_LEVEL2:     radio.jnrlevel = JNR_LEVEL2;                    break; 
+        case OPTION_JNR_LEVEL3:     radio.jnrlevel = JNR_LEVEL3;                    break; 
+        case OPTION_JNR_OFF:        radio.jnrlevel = JNR_OFF;                       break; 
         case OPTION_GAUSSIAN_ON:    radio.gaussian = true;                          break; 
         case OPTION_GAUSSIAN_OFF:   radio.gaussian = false;                         break; 
         case OPTION_EXIT:           radio.menu_active = false;                      break; 
@@ -1630,6 +1743,13 @@ void loop1(void)
       if (radio.spectype != old_spectype)
       {
         old_spectype = radio.spectype;
+        settings_changed = true;
+      }
+
+      // JNR level
+      if (radio.jnrlevel != old_jnrlevel)
+      {
+        old_jnrlevel = radio.jnrlevel;
         settings_changed = true;
       }
 
