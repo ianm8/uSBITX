@@ -1,12 +1,12 @@
 A stable version with minimal features and options.
 
- * Build:
+Build:
  *  CPU Speed: 225Mhz
  *  Optimize: -O2
  *  USB Stack: No USB
  *  Flash Size: 4MB (Sketch: 4032KB, FS: 64KB)
 
- * Some history
+Some history
  *  0.7.255 fixed bug in auto mode
  *  0.8.255 fixed bug in spectrum dynamic range
  *  0.9.255 fixed sidetone level
