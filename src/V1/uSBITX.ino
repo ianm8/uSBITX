@@ -1,5 +1,5 @@
 /*
- * uSBITX Version 1.3.225
+ * uSBITX Version 1.4.225
  *
  * Copyright 2024 Ian Mitchell VK7IAN
  * Licenced under the GNU GPL Version 3
@@ -39,6 +39,7 @@
  *  1.2.225 add AM mode
  *  1.2.225 add noise reduction
  *  1.3.225 show CW settings
+ *  1.4.225 move filter code to filters.h
  *
  */
 
@@ -59,7 +60,7 @@
 
 //#define YOUR_CALL "VK7IAN"
 
-#define VERSION_STRING "  V1.3."
+#define VERSION_STRING "  V1.4."
 #define CRYSTAL_CENTRE 39999500UL
 #define IF_CENTRE 7812UL
 #define CW_TIMEOUT 800u
@@ -252,7 +253,6 @@ radio =
   true
 };
 
-////
 static struct
 {
   const uint32_t lo;
@@ -261,8 +261,7 @@ static struct
 }
 bands[] =
 {
-  //{ 3500000UL,  3800000UL,  3600000UL},
-  {  500000UL,  3800000UL,  3600000UL},
+  { 3500000UL,  3800000UL,  3600000UL},
   { 7000000UL,  7300000UL,  7100000UL},
   {10100000UL, 10150000UL, 10120000UL},
   {14000000UL, 14350000UL, 14200000UL},
