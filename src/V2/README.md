@@ -25,3 +25,5 @@ Some history
  *  1.3.225 show CW settings
  *  1.4.225 move filter code to filters.h
  *  2.0.225 add AMN and AMW (RX only) modes
+ *  2.1.225 fix issue with noise on AMN
+ *  2.2.225 move IRQ to SRAM fixes DSP issues
