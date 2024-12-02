@@ -1,5 +1,5 @@
 /*
- * uSBITX Version 2.0.225
+ * uSBITX Version 2.2.225
  *
  * Copyright 2024 Ian Mitchell VK7IAN
  * Licenced under the GNU GPL Version 3
@@ -41,6 +41,8 @@
  *  1.3.225 show CW settings
  *  1.4.225 move filter code to filters.h
  *  2.0.225 add AMN and AMW (RX only) modes
+ *  2.1.225 fix issue with noise on AMN
+ *  2.2.225 move IRQ to SRAM fixes DSP issues
  *
  */
 
@@ -61,7 +63,7 @@
 
 //#define YOUR_CALL "VK7IAN"
 
-#define VERSION_STRING "  V1.4."
+#define VERSION_STRING "  V2.2."
 #define CRYSTAL_CENTRE 39999500UL
 #define IF_CENTRE 7812UL
 #define CW_TIMEOUT 800u
@@ -255,7 +257,6 @@ radio =
   true
 };
 
-////
 static struct
 {
   const uint32_t lo;
@@ -264,8 +265,7 @@ static struct
 }
 bands[] =
 {
-  //{ 3500000UL,  3800000UL,  3600000UL},
-  {  500000UL,  3800000UL,  3600000UL},
+  { 3500000UL,  3800000UL,  3600000UL},
   { 7000000UL,  7300000UL,  7100000UL},
   {10100000UL, 10150000UL, 10120000UL},
   {14000000UL, 14350000UL, 14200000UL},
@@ -303,21 +303,6 @@ MCP3021 refADC;
 Rotary r = Rotary(PIN_ENCA,PIN_ENCB);
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite lcd = TFT_eSprite(&tft);
-
-void init_adc(void)
-{
-  adc_init();
-  adc_gpio_init(PIN_MIC);
-  adc_gpio_init(PIN_IF);
-  adc_select_input(IF_MUX);
-  adc_fifo_setup(true, false, 4, false, false);
-  adc_fifo_drain();
-  adc_irq_set_enabled(true);
-  irq_set_exclusive_handler(ADC_IRQ_FIFO, adc_interrupt_handler);
-  irq_set_priority(ADC_IRQ_FIFO, PICO_HIGHEST_IRQ_PRIORITY);
-  irq_set_enabled(ADC_IRQ_FIFO, true);
-  adc_run(true);
-}
 
 static void set_filter(void)
 {
@@ -1312,7 +1297,7 @@ volatile static uint32_t adc_sample_p = 0;
 volatile static uint32_t mic_peak_level = 0;
 volatile static int16_t adc_data[MAX_ADC_SAMPLES] = {0};
 
-void adc_interrupt_handler(void)
+void __not_in_flash_func(adc_interrupt_handler)(void)
 {
   volatile static uint32_t counter = 0;
   volatile static uint32_t adc_raw = 0;
@@ -1337,7 +1322,22 @@ void adc_interrupt_handler(void)
   counter++;
 }
 
-void loop(void)
+void init_adc(void)
+{
+  adc_init();
+  adc_gpio_init(PIN_MIC);
+  adc_gpio_init(PIN_IF);
+  adc_select_input(IF_MUX);
+  adc_fifo_setup(true, false, 4, false, false);
+  adc_fifo_drain();
+  adc_irq_set_enabled(true);
+  irq_set_exclusive_handler(ADC_IRQ_FIFO, adc_interrupt_handler);
+  irq_set_priority(ADC_IRQ_FIFO, PICO_HIGHEST_IRQ_PRIORITY);
+  irq_set_enabled(ADC_IRQ_FIFO, true);
+  adc_run(true);
+}
+
+void __not_in_flash_func(loop)(void)
 {
   // run DSP on core 0
   static bool tx = false;
@@ -1821,6 +1821,7 @@ void loop1(void)
     }
     else
     {
+      // menu not active
       switch (button_state)
       {
         case BUTTON_IDLE:
@@ -1893,14 +1894,16 @@ void loop1(void)
       const int32_t tuning_delta = radio.tune;
       radio.tune = 0;
       mutex_exit(&rotary_mutex);
-      radio.frequency = radio.frequency+(tuning_delta * (int32_t)radio.step);
-      radio.frequency = radio.frequency/radio.step;
-      radio.frequency = radio.frequency*radio.step;
-      radio.frequency = constrain(radio.frequency,bands[radio.band].lo,bands[radio.band].hi);
-      radio.higain = (radio.frequency>15000000ul);
-      if (radio.frequency!=old_frequency || radio.mode!=old_mode)
+      uint32_t new_frequency = radio.frequency;
+      new_frequency = new_frequency+(tuning_delta * (int32_t)radio.step);
+      new_frequency = new_frequency/radio.step;
+      new_frequency = new_frequency*radio.step;
+      new_frequency = constrain(new_frequency,bands[radio.band].lo,bands[radio.band].hi);
+      if (new_frequency!=old_frequency || radio.mode!=old_mode)
       {
-        old_frequency = radio.frequency;
+        radio.frequency = new_frequency;
+        radio.higain = (new_frequency>15000000ul);
+        old_frequency = new_frequency;
         old_mode = radio.mode;
         set_frequency();
       } // frequency change

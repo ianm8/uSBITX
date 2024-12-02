@@ -98,7 +98,7 @@ void Rotary::begin(bool internalPullup, bool flipLogicForPulldown)
   inverter = flipLogicForPulldown ? 1 : 0;
 }
 
-const unsigned char Rotary::process(void) 
+const unsigned char __not_in_flash_func(Rotary::process)(void) 
 {
   // Grab state of input pins.
   unsigned char pinstate = ((inverter ^ digitalRead(pin2)) << 1) | (inverter ^ digitalRead(pin1));

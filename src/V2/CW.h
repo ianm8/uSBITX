@@ -417,7 +417,7 @@ namespace CW
     return sig;
   }
 
-  static const int16_t get_sidetone(const bool keydown,const uint32_t phase,const uint32_t level)
+  static const int16_t __not_in_flash_func(get_sidetone)(const bool keydown,const uint32_t phase,const uint32_t level)
   {
     volatile static uint32_t dds = 0;
     int16_t s = 0;

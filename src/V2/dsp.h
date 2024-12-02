@@ -33,7 +33,7 @@ static const uint32_t __not_in_flash_func(get_mic_peak_level)(const int16_t mic_
   return mic_peak_level;
 }
 
-const int16_t __not_in_flash_func(process_ssb_tx)(const int16_t s,const bool mode_LSB)
+static const int16_t __not_in_flash_func(process_ssb_tx)(const int16_t s,const bool mode_LSB)
 {
   // generate an SSB signal at FS/4 (7812 Hz)
   // 1. bandpass filter (300 - 2400)
@@ -68,7 +68,7 @@ const int16_t __not_in_flash_func(process_ssb_tx)(const int16_t s,const bool mod
   return v;
 }
 
-const int16_t __not_in_flash_func(process_am_tx)(const int16_t s)
+static const int16_t __not_in_flash_func(process_am_tx)(const int16_t s)
 {
   // generate an AM signal at FS/4 (7812 Hz)
   // 1. bandpass filter (300 - 2400)
@@ -240,7 +240,7 @@ static const int16_t __not_in_flash_func(process_amn_rx)(const int16_t s,const b
 
 static const int16_t __not_in_flash_func(process_amw_rx)(const int16_t s,const bool higain)
 {
-  // Am Wide
+  // AM Wide
   // demodulate an AM signal at FS/4 (7812 Hz)
   // 1. bandpass filter AM signal (6KHz)
   // 2. down-convert to baseband (mix with BFO at FS/4 - note, this reduces to ABS()!)
