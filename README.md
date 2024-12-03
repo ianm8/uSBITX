@@ -1,6 +1,8 @@
 # uSBITX
 An HF transceiver based on the sBITX.
 
+![alt text](https://github.com/ianm8/uSBITX/blob/main/docs/uSBITX-Front.jpg?raw=true)
+
 ![alt text](https://github.com/ianm8/uSBITX/blob/main/docs/uSBITX%20Complete.jpg?raw=true)
 
 Short video of a QSO between VK2IO and VK7AAE
