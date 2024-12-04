@@ -24,3 +24,4 @@ Some history
  *  1.2.225 add noise reduction
  *  1.3.225 show CW settings
  *  1.4.225 move filter code to filters.h
+ *  1.5.225 move IRQ to SRAM fixes DSP issues
