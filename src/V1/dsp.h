@@ -33,7 +33,7 @@ static const uint32_t __not_in_flash_func(get_mic_peak_level)(const int16_t mic_
   return mic_peak_level;
 }
 
-const int16_t __not_in_flash_func(process_ssb_tx)(const int16_t s,const bool mode_LSB)
+static const int16_t __not_in_flash_func(process_ssb_tx)(const int16_t s,const bool mode_LSB)
 {
   // generate an SSB signal at FS/4 (7812 Hz)
   // 1. bandpass filter (300 - 2400)
@@ -68,7 +68,7 @@ const int16_t __not_in_flash_func(process_ssb_tx)(const int16_t s,const bool mod
   return v;
 }
 
-const int16_t __not_in_flash_func(process_am_tx)(const int16_t s)
+static const int16_t __not_in_flash_func(process_am_tx)(const int16_t s)
 {
   // generate an AM signal at FS/4 (7812 Hz)
   // 1. bandpass filter (300 - 2400)
@@ -229,7 +229,7 @@ static const int16_t __not_in_flash_func(process_am_rx)(const int16_t s,const bo
   v = abs(v);
 
   // remove DC and filter
-  v = FILTER::lpf_fs8_rx(FILTER::dc(v));
+  v = FILTER::lpf_3000_rx(FILTER::dc(v));
 
   // more gain on higher bands
   if (higain) v <<= 1;

@@ -56,6 +56,7 @@ enum option_value_t
   OPTION_STEP_100,
   OPTION_STEP_500,
   OPTION_STEP_1000,
+  OPTION_STEP_5000,
   OPTION_STEP_10000,
   OPTION_MODE_USB,
   OPTION_MODE_LSB,
@@ -147,8 +148,8 @@ menu_options[NUM_MENU_ITEMS] =
       {OPTION_STEP_100,"100"},
       {OPTION_STEP_500,"500"},
       {OPTION_STEP_1000,"1000"},
+      {OPTION_STEP_5000,"5000"},
       {OPTION_STEP_10000,"10000"},
-      {OPTION_EXIT,"Exit"},
       {OPTION_EXIT,"Exit"},
       {OPTION_EXIT,"Exit"},
       {OPTION_EXIT,"Exit"}
