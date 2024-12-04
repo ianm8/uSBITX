@@ -27,3 +27,4 @@ Some history
  *  2.0.225 add AMN and AMW (RX only) modes
  *  2.1.225 fix issue with noise on AMN
  *  2.2.225 move IRQ to SRAM fixes DSP issues
+ *  2.3.225 add AML and AMU modes (TX in AM, RX in SSB)
