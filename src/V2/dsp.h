@@ -230,7 +230,8 @@ static const int16_t __not_in_flash_func(process_amn_rx)(const int16_t s,const b
   v = abs(v);
 
   // remove DC and filter
-  v = FILTER::lpf_fs8_rx(FILTER::dc(v));
+  //v = FILTER::lpf_fs8_rx(FILTER::dc(v));
+  v = FILTER::lpf_3000_rx(FILTER::dc(v));
 
   // more gain on higher bands
   if (higain) v <<= 1;

@@ -33,7 +33,7 @@
 */
 
 #define NUM_MENU_ITEMS 11U
-#define NUM_MENU_OPTIONS 9U
+#define NUM_MENU_OPTIONS 10U
 
 enum menu_top_t
 {
@@ -56,6 +56,7 @@ enum option_value_t
   OPTION_STEP_100,
   OPTION_STEP_500,
   OPTION_STEP_1000,
+  OPTION_STEP_5000,
   OPTION_STEP_10000,
   OPTION_MODE_USB,
   OPTION_MODE_LSB,
@@ -63,6 +64,8 @@ enum option_value_t
   OPTION_MODE_CWU,
   OPTION_MODE_AMN,
   OPTION_MODE_AMW,
+  OPTION_MODE_AML,
+  OPTION_MODE_AMU,
   OPTION_MODE_AUTO,
   OPTION_BAND_80M,
   OPTION_BAND_40M,
@@ -91,6 +94,7 @@ enum option_value_t
   OPTION_SIDETONE_MED,
   OPTION_SIDETONE_HI,
   OPTION_IFSHIFT_200N,
+  OPTION_IFSHIFT_150N,
   OPTION_IFSHIFT_100N,
   OPTION_IFSHIFT_50N,
   OPTION_IFSHIFT_0,
@@ -136,29 +140,31 @@ menu_options[NUM_MENU_ITEMS] =
       {OPTION_BAND_15M,"15M"},
       {OPTION_BAND_12M,"12M"},
       {OPTION_BAND_10M,"10M"},
-      {OPTION_EXIT,"Exit"}
+      {OPTION_EXIT,"Exit"},
+      {OPTION_NONE,"None"}
     }
   },
   {
     MENU_STEP,
     "Step",
-    6U,
+    7U,
     {
       {OPTION_STEP_10,"10"},
       {OPTION_STEP_100,"100"},
       {OPTION_STEP_500,"500"},
       {OPTION_STEP_1000,"1000"},
+      {OPTION_STEP_5000,"5000"},
       {OPTION_STEP_10000,"10000"},
       {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"}
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"}
     }
   },
   {
     MENU_MODE,
     "Mode",
-    8U,
+    10U,
     {
       {OPTION_MODE_LSB,"LSB"},
       {OPTION_MODE_USB,"USB"},
@@ -166,8 +172,9 @@ menu_options[NUM_MENU_ITEMS] =
       {OPTION_MODE_CWU,"CWU"},
       {OPTION_MODE_AMN,"AMN"},
       {OPTION_MODE_AMW,"AMW"},
+      {OPTION_MODE_AML,"AML"},
+      {OPTION_MODE_AMU,"AMU"},
       {OPTION_MODE_AUTO,"AUTO"},
-      {OPTION_EXIT,"Exit"},
       {OPTION_EXIT,"Exit"}
     }
   },
@@ -181,10 +188,11 @@ menu_options[NUM_MENU_ITEMS] =
       {OPTION_JNR_LEVEL3,"Level 3"},
       {OPTION_JNR_OFF,"Off"},
       {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"}
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"}
     }
   },
   {
@@ -198,9 +206,10 @@ menu_options[NUM_MENU_ITEMS] =
       {OPTION_CW_SPEED_25,"25 WPM"},
       {OPTION_CW_SPEED_30,"30 WPM"},
       {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"}
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"}
     }
   },
   {
@@ -216,7 +225,8 @@ menu_options[NUM_MENU_ITEMS] =
       {OPTION_SIDETONE_750,"750 Hz"},
       {OPTION_SIDETONE_800,"800 Hz"},
       {OPTION_SIDETONE_850,"850 Hz"},
-      {OPTION_EXIT,"Exit"}
+      {OPTION_EXIT,"Exit"},
+      {OPTION_NONE,"None"}
     }
   },
   {
@@ -228,11 +238,12 @@ menu_options[NUM_MENU_ITEMS] =
       {OPTION_SIDETONE_MED,"Medium"},
       {OPTION_SIDETONE_HI,"High"},
       {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"}
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"}
     }
   },
   {
@@ -241,6 +252,7 @@ menu_options[NUM_MENU_ITEMS] =
     9U,
     {
       {OPTION_IFSHIFT_200N,"-200Hz"},
+      {OPTION_IFSHIFT_150N,"-150Hz"},
       {OPTION_IFSHIFT_100N,"-100Hz"},
       {OPTION_IFSHIFT_50N,"-50Hz"},
       {OPTION_IFSHIFT_0,"0Hz"},
@@ -259,12 +271,13 @@ menu_options[NUM_MENU_ITEMS] =
       {OPTION_SPECTRUM_WIND,"Wind"},
       {OPTION_SPECTRUM_GRASS,"Grass"},
       {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"}
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"}
     }
   },
   {
@@ -275,12 +288,13 @@ menu_options[NUM_MENU_ITEMS] =
       {OPTION_GAUSSIAN_ON,"On"},
       {OPTION_GAUSSIAN_OFF,"Off"},
       {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"}
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"}
     }
   },
   {
@@ -289,14 +303,15 @@ menu_options[NUM_MENU_ITEMS] =
     1U,
     {
       {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_EXIT,"Exit"}
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"}
     }
   }
 };

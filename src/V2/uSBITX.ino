@@ -1,5 +1,5 @@
 /*
- * uSBITX Version 2.2.225
+ * uSBITX Version 2.3.225
  *
  * Copyright 2024 Ian Mitchell VK7IAN
  * Licenced under the GNU GPL Version 3
@@ -43,6 +43,7 @@
  *  2.0.225 add AMN and AMW (RX only) modes
  *  2.1.225 fix issue with noise on AMN
  *  2.2.225 move IRQ to SRAM fixes DSP issues
+ *  2.3.225 add AML and AMU modes (TX in AM, RX in SSB)
  *
  */
 
@@ -63,7 +64,7 @@
 
 //#define YOUR_CALL "VK7IAN"
 
-#define VERSION_STRING "  V2.2."
+#define VERSION_STRING "  V2.3."
 #define CRYSTAL_CENTRE 39999500UL
 #define IF_CENTRE 7812UL
 #define CW_TIMEOUT 800u
@@ -200,7 +201,9 @@ enum radio_mode_t
   MODE_CWL,
   MODE_CWU,
   MODE_AMN,
-  MODE_AMW
+  MODE_AMW,
+  MODE_AML,
+  MODE_AMU
 };
 
 auto_init_mutex(rotary_mutex);
@@ -775,6 +778,8 @@ static void show_mode(void)
       case MODE_CWU: sz_mode = "CWU"; break;
       case MODE_AMN: sz_mode = "AMN"; break;
       case MODE_AMW: sz_mode = "AMN"; break;
+      case MODE_AML: sz_mode = "AMN"; break;
+      case MODE_AMU: sz_mode = "AMN"; break;
     }
   }
   else
@@ -787,6 +792,8 @@ static void show_mode(void)
       case MODE_CWU: sz_mode = "CWU"; break;
       case MODE_AMN: sz_mode = "AMN"; break;
       case MODE_AMW: sz_mode = "AMW"; break;
+      case MODE_AML: sz_mode = "AML"; break;
+      case MODE_AMU: sz_mode = "AMU"; break;
     }
   }
   lcd.print(sz_mode);
@@ -923,52 +930,66 @@ static void show_spectrum(void)
   lcd.setCursor(LCD_WIDTH-34,POS_WATER_Y+4);
   lcd.print("+8KHz");
 
-  // highlight received bandwidth
-  switch (radio.mode)
+  if (radio.tx_enable &&
+    (radio.mode==MODE_AMN || radio.mode==MODE_AMW ||
+    radio.mode==MODE_AML || radio.mode==MODE_AMU))
   {
-    case MODE_LSB:
+    for (uint32_t x=0;x<40;x++)
     {
-      for (uint32_t x=0;x<40;x++)
-      {
-        lcd.drawLine(POS_CENTER_LEFT-x,POS_WATER_Y,POS_CENTER_LEFT-x,POS_WATER_Y+31,LCD_MODE);
-      }
-      break;
+      lcd.drawLine(POS_CENTER_LEFT-x,POS_WATER_Y,POS_CENTER_LEFT-x,POS_WATER_Y+31,LCD_MODE);
+      lcd.drawLine(POS_CENTER_RIGHT+x,POS_WATER_Y,POS_CENTER_RIGHT+x,POS_WATER_Y+31,LCD_MODE);
     }
-    case MODE_USB:
+  }
+  else
+  {
+    switch (radio.mode)
     {
-      for (uint32_t x=0;x<40;x++)
+      case MODE_LSB:
+      case MODE_AML:
       {
-        lcd.drawLine(POS_CENTER_RIGHT+x,POS_WATER_Y,POS_CENTER_RIGHT+x,POS_WATER_Y+31,LCD_MODE);
+        for (uint32_t x=0;x<40;x++)
+        {
+          lcd.drawLine(POS_CENTER_LEFT-x,POS_WATER_Y,POS_CENTER_LEFT-x,POS_WATER_Y+31,LCD_MODE);
+        }
+        break;
       }
-      break;
-    }
-    case MODE_CWL:
-    case MODE_CWU:
-    {
-      for (uint32_t x=0;x<5;x++)
+      case MODE_USB:
+      case MODE_AMU:
       {
-        lcd.drawLine(POS_CENTER_LEFT-x,POS_WATER_Y,POS_CENTER_LEFT-x,POS_WATER_Y+31,LCD_MODE);
-        lcd.drawLine(POS_CENTER_RIGHT+x,POS_WATER_Y,POS_CENTER_RIGHT+x,POS_WATER_Y+31,LCD_MODE);
+        for (uint32_t x=0;x<40;x++)
+        {
+          lcd.drawLine(POS_CENTER_RIGHT+x,POS_WATER_Y,POS_CENTER_RIGHT+x,POS_WATER_Y+31,LCD_MODE);
+        }
+        break;
       }
-      break;
-    }
-    case MODE_AMN:
-    {
-      for (uint32_t x=0;x<40;x++)
+      case MODE_CWL:
+      case MODE_CWU:
       {
-        lcd.drawLine(POS_CENTER_LEFT-x,POS_WATER_Y,POS_CENTER_LEFT-x,POS_WATER_Y+31,LCD_MODE);
-        lcd.drawLine(POS_CENTER_RIGHT+x,POS_WATER_Y,POS_CENTER_RIGHT+x,POS_WATER_Y+31,LCD_MODE);
+        for (uint32_t x=0;x<5;x++)
+        {
+          lcd.drawLine(POS_CENTER_LEFT-x,POS_WATER_Y,POS_CENTER_LEFT-x,POS_WATER_Y+31,LCD_MODE);
+          lcd.drawLine(POS_CENTER_RIGHT+x,POS_WATER_Y,POS_CENTER_RIGHT+x,POS_WATER_Y+31,LCD_MODE);
+        }
+        break;
       }
-      break;
-    }
-    case MODE_AMW:
-    {
-      for (uint32_t x=0;x<50;x++)
+      case MODE_AMN:
       {
-        lcd.drawLine(POS_CENTER_LEFT-x,POS_WATER_Y,POS_CENTER_LEFT-x,POS_WATER_Y+31,LCD_MODE);
-        lcd.drawLine(POS_CENTER_RIGHT+x,POS_WATER_Y,POS_CENTER_RIGHT+x,POS_WATER_Y+31,LCD_MODE);
+        for (uint32_t x=0;x<40;x++)
+        {
+          lcd.drawLine(POS_CENTER_LEFT-x,POS_WATER_Y,POS_CENTER_LEFT-x,POS_WATER_Y+31,LCD_MODE);
+          lcd.drawLine(POS_CENTER_RIGHT+x,POS_WATER_Y,POS_CENTER_RIGHT+x,POS_WATER_Y+31,LCD_MODE);
+        }
+        break;
       }
-      break;
+      case MODE_AMW:
+      {
+        for (uint32_t x=0;x<50;x++)
+        {
+          lcd.drawLine(POS_CENTER_LEFT-x,POS_WATER_Y,POS_CENTER_LEFT-x,POS_WATER_Y+31,LCD_MODE);
+          lcd.drawLine(POS_CENTER_RIGHT+x,POS_WATER_Y,POS_CENTER_RIGHT+x,POS_WATER_Y+31,LCD_MODE);
+        }
+        break;
+      }
     }
   }
 
@@ -1419,6 +1440,8 @@ void __not_in_flash_func(loop)(void)
           case MODE_CWU: rx_value = process_cw_rx(adc_value,radio.cw_bfo,radio.higain); break;
           case MODE_AMN: rx_value = process_amn_rx(adc_value,radio.higain);             break;
           case MODE_AMW: rx_value = process_amw_rx(adc_value,radio.higain);             break;
+          case MODE_AML: rx_value = process_ssb_rx(adc_value,true,radio.higain);        break;
+          case MODE_AMU: rx_value = process_ssb_rx(adc_value,false,radio.higain);       break;
         }
         rx_value = jnr(rx_value,radio.jnrlevel);
         dac_audio = constrain(rx_value,-2048,+2047)+2048;
@@ -1681,11 +1704,14 @@ void loop1(void)
         case OPTION_MODE_CWU:       radio.mode = MODE_CWU; radio.mode_auto = false; break;
         case OPTION_MODE_AMN:       radio.mode = MODE_AMN; radio.mode_auto = false; break;
         case OPTION_MODE_AMW:       radio.mode = MODE_AMW; radio.mode_auto = false; break;
+        case OPTION_MODE_AML:       radio.mode = MODE_AML; radio.mode_auto = false; break;
+        case OPTION_MODE_AMU:       radio.mode = MODE_AMU; radio.mode_auto = false; break;
         case OPTION_MODE_AUTO:      radio.mode_auto = true;                         break;
         case OPTION_STEP_10:        radio.step = 10U;                               break;
         case OPTION_STEP_100:       radio.step = 100U;                              break;
         case OPTION_STEP_500:       radio.step = 500U;                              break;
         case OPTION_STEP_1000:      radio.step = 1000U;                             break;
+        case OPTION_STEP_5000:      radio.step = 5000U;                             break;
         case OPTION_STEP_10000:     radio.step = 10000U;                            break;
         case OPTION_BAND_80M:       radio.band = BAND_80M;                          break;
         case OPTION_BAND_40M:       radio.band = BAND_40M;                          break;
@@ -1712,6 +1738,7 @@ void loop1(void)
         case OPTION_CW_SPEED_25:    radio.cw_dit = 48u;                             break;
         case OPTION_CW_SPEED_30:    radio.cw_dit = 40u;                             break;
         case OPTION_IFSHIFT_200N:   radio.ifshift = -200;                           break;
+        case OPTION_IFSHIFT_150N:   radio.ifshift = -150;                           break;
         case OPTION_IFSHIFT_100N:   radio.ifshift = -100;                           break;
         case OPTION_IFSHIFT_50N:    radio.ifshift = -50;                            break;
         case OPTION_IFSHIFT_0:      radio.ifshift = 0;                              break;
