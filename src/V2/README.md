@@ -28,3 +28,5 @@ Some history
  *  2.1.225 fix issue with noise on AMN
  *  2.2.225 move IRQ to SRAM fixes DSP issues
  *  2.3.225 add AML and AMU modes (TX in AM, RX in SSB)
+ *  2.4.225 general coverage receive mode
+ *  2.5.225 improve AM and CW filtering
