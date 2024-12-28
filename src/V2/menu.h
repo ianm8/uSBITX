@@ -58,6 +58,7 @@ enum option_value_t
   OPTION_STEP_1000,
   OPTION_STEP_5000,
   OPTION_STEP_10000,
+  OPTION_STEP_100000,
   OPTION_MODE_USB,
   OPTION_MODE_LSB,
   OPTION_MODE_CWL,
@@ -75,6 +76,7 @@ enum option_value_t
   OPTION_BAND_15M,
   OPTION_BAND_12M,
   OPTION_BAND_10M,
+  OPTION_BAND_SWL,
   OPTION_GAUSSIAN_ON,
   OPTION_GAUSSIAN_OFF,
   OPTION_CW_SPEED_10,
@@ -130,7 +132,7 @@ menu_options[NUM_MENU_ITEMS] =
   {
     MENU_BAND,
     "Band",
-    9U,
+    10U,
     {
       {OPTION_BAND_80M,"80M"},
       {OPTION_BAND_40M,"40M"},
@@ -140,14 +142,14 @@ menu_options[NUM_MENU_ITEMS] =
       {OPTION_BAND_15M,"15M"},
       {OPTION_BAND_12M,"12M"},
       {OPTION_BAND_10M,"10M"},
-      {OPTION_EXIT,"Exit"},
-      {OPTION_NONE,"None"}
+      {OPTION_BAND_SWL,"SWL"},
+      {OPTION_EXIT,"Exit"}
     }
   },
   {
     MENU_STEP,
     "Step",
-    7U,
+    8U,
     {
       {OPTION_STEP_10,"10"},
       {OPTION_STEP_100,"100"},
@@ -155,8 +157,8 @@ menu_options[NUM_MENU_ITEMS] =
       {OPTION_STEP_1000,"1000"},
       {OPTION_STEP_5000,"5000"},
       {OPTION_STEP_10000,"10000"},
+      {OPTION_STEP_100000,"100000"},
       {OPTION_EXIT,"Exit"},
-      {OPTION_NONE,"None"},
       {OPTION_NONE,"None"},
       {OPTION_NONE,"None"}
     }

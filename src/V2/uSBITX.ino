@@ -1,5 +1,5 @@
 /*
- * uSBITX Version 2.3.225
+ * uSBITX Version 2.5.225
  *
  * Copyright 2024 Ian Mitchell VK7IAN
  * Licenced under the GNU GPL Version 3
@@ -17,6 +17,7 @@
  *   that is, comment out: spi_set_format(SPI_X,  8, (spi_cpol_t)0, (spi_cpha_t)0, SPI_MSB_FIRST)
  *
  * Build:
+ *  Pico 2
  *  CPU Speed: 225Mhz
  *  Optimize: -O2
  *  USB Stack: No USB
@@ -44,6 +45,8 @@
  *  2.1.225 fix issue with noise on AMN
  *  2.2.225 move IRQ to SRAM fixes DSP issues
  *  2.3.225 add AML and AMU modes (TX in AM, RX in SSB)
+ *  2.4.225 general coverage receive mode
+ *  2.5.225 improve AM and CW filtering
  *
  */
 
@@ -64,7 +67,7 @@
 
 //#define YOUR_CALL "VK7IAN"
 
-#define VERSION_STRING "  V2.3."
+#define VERSION_STRING "  V2.5."
 #define CRYSTAL_CENTRE 39999500UL
 #define IF_CENTRE 7812UL
 #define CW_TIMEOUT 800u
@@ -77,8 +80,9 @@
 #define BAND_15M 5
 #define BAND_12M 6
 #define BAND_10M 7
+#define BAND_SWL 8
 #define BAND_MIN BAND_80M
-#define BAND_MAX BAND_10M
+#define BAND_MAX BAND_SWL
 #define DEFAULT_FREQUENCY 14200000ul
 #define DEFAULT_BAND BAND_20M
 #define DEFAULT_MODE MODE_USB
@@ -275,7 +279,8 @@ bands[] =
   {18068000UL, 18168000UL, 18100000UL},
   {21000000UL, 21450000UL, 21200000UL},
   {24890000UL, 24990000UL, 24900000UL},
-  {28000000UL, 29700000UL, 28500000UL}
+  {28000000UL, 29700000UL, 28500000UL},
+  {  500000UL, 30000000UL,  5000000UL}
 };
 
 volatile static struct
@@ -291,7 +296,8 @@ save_data[] =
   {18100000UL},
   {21200000UL},
   {24900000UL},
-  {28500000UL}
+  {28500000UL},
+  { 5000000UL}
 };
 
 volatile static struct
@@ -309,25 +315,28 @@ TFT_eSprite lcd = TFT_eSprite(&tft);
 
 static void set_filter(void)
 {
-  digitalWrite(PIN_FILTER1,LOW);
-  digitalWrite(PIN_FILTER2,LOW);
-  digitalWrite(PIN_FILTER3,LOW);
-  digitalWrite(PIN_FILTER4,LOW);
+  static pin_size_t old_filter = 0;
+  pin_size_t new_filter = PIN_FILTER4;
   if (radio.frequency<6000000UL)
   {
-    digitalWrite(PIN_FILTER1,HIGH);
+    new_filter = PIN_FILTER1;
   }
   else if (radio.frequency<11000000UL)
   {
-    digitalWrite(PIN_FILTER2,HIGH);
+    new_filter = PIN_FILTER2;
   }
   else if (radio.frequency<20000000UL)
   {
-    digitalWrite(PIN_FILTER3,HIGH);
+    new_filter = PIN_FILTER3;
   }
-  else
+  if (old_filter != new_filter)
   {
-    digitalWrite(PIN_FILTER4,HIGH);
+    old_filter = new_filter;
+    digitalWrite(PIN_FILTER1,LOW);
+    digitalWrite(PIN_FILTER2,LOW);
+    digitalWrite(PIN_FILTER3,LOW);
+    digitalWrite(PIN_FILTER4,LOW);
+    digitalWrite(new_filter,HIGH);
   }
 }
 
@@ -748,9 +757,24 @@ static void show_rx(void)
   lcd.print("RX");
 }
 
+static void show_swl(void)
+{
+  lcd.setTextSize(2);
+  lcd.setCursor(POS_TX_X,POS_TX_Y);
+  lcd.setTextColor(LCD_RED);
+  lcd.print("TX");
+  lcd.setCursor(POS_RX_X,POS_RX_Y);
+  lcd.setTextColor(LCD_RED);
+  lcd.print("RX");
+}
+
 static void show_rx_tx(void)
 {
-  if (radio.tx_enable)
+  if (radio.band==BAND_SWL)
+  {
+    show_swl();
+  }
+  else if (radio.tx_enable)
   {
     show_tx();
   }
@@ -801,7 +825,8 @@ static void show_mode(void)
 
 static void show_band(void)
 {
-  lcd.fillRect(POS_BAND_X-5,POS_BAND_Y-5,45,25,LCD_PURPLE);
+  const uint32_t background = (radio.band==BAND_SWL)?LCD_RED:LCD_PURPLE;
+  lcd.fillRect(POS_BAND_X-5,POS_BAND_Y-5,45,25,background);
   lcd.setTextSize(2);
   lcd.setTextColor(LCD_WHITE);
   lcd.setCursor(POS_BAND_X,POS_BAND_Y);
@@ -816,6 +841,7 @@ static void show_band(void)
     case BAND_15M: sz_band = "15M"; break;
     case BAND_12M: sz_band = "12M"; break;
     case BAND_10M: sz_band = "10M"; break;
+    case BAND_SWL: sz_band = "SWL"; break;
   }
   lcd.print(sz_band);
 }
@@ -1713,6 +1739,7 @@ void loop1(void)
         case OPTION_STEP_1000:      radio.step = 1000U;                             break;
         case OPTION_STEP_5000:      radio.step = 5000U;                             break;
         case OPTION_STEP_10000:     radio.step = 10000U;                            break;
+        case OPTION_STEP_100000:    radio.step = 100000U;                           break;
         case OPTION_BAND_80M:       radio.band = BAND_80M;                          break;
         case OPTION_BAND_40M:       radio.band = BAND_40M;                          break;
         case OPTION_BAND_30M:       radio.band = BAND_30M;                          break;
@@ -1721,6 +1748,7 @@ void loop1(void)
         case OPTION_BAND_15M:       radio.band = BAND_15M;                          break;
         case OPTION_BAND_12M:       radio.band = BAND_12M;                          break;
         case OPTION_BAND_10M:       radio.band = BAND_10M;                          break;
+        case OPTION_BAND_SWL:       radio.band = BAND_SWL;                          break;
         case OPTION_SIDETONE_500:   radio.sidetone = 500u;                          break;
         case OPTION_SIDETONE_550:   radio.sidetone = 550u;                          break;
         case OPTION_SIDETONE_600:   radio.sidetone = 600u;                          break;
@@ -1933,6 +1961,10 @@ void loop1(void)
         old_frequency = new_frequency;
         old_mode = radio.mode;
         set_frequency();
+        if (radio.band==BAND_SWL)
+        {
+          set_filter();
+        }
       } // frequency change
     } // menu active
   } // receive mode
@@ -1953,30 +1985,33 @@ void loop1(void)
   }
 
   // check for PTT
-  const bool b_PTT = (digitalRead(PIN_PTT)==LOW);
-  const bool b_PADA = (digitalRead(PIN_PADA)==LOW);
-  const bool b_PADB = (digitalRead(PIN_PADB)==LOW);
-  if (b_PTT || b_PADA || b_PADB)
+  if (radio.band != BAND_SWL)
   {
-    const float saved_agc = agc_peak;
-    radio.menu_active = false;
-    if (radio.mode==MODE_CWL || radio.mode==MODE_CWU)
+    const bool b_PTT = (digitalRead(PIN_PTT)==LOW);
+    const bool b_PADA = (digitalRead(PIN_PADA)==LOW);
+    const bool b_PADB = (digitalRead(PIN_PADB)==LOW);
+    if (b_PTT || b_PADA || b_PADB)
     {
-      process_key();
+      const float saved_agc = agc_peak;
+      radio.menu_active = false;
+      if (radio.mode==MODE_CWL || radio.mode==MODE_CWU)
+      {
+        process_key();
+      }
+      else if (b_PTT)
+      {
+        process_ssb_tx();
+      }
+      // back to receive
+      digitalWrite(PIN_TX,LOW);
+      radio.tx_enable = false;
+      delay(10);
+      digitalWrite(PIN_RX,HIGH);
+      delay(10);
+      digitalWrite(LED_BUILTIN,LOW);
+      update_display();
+      digitalWrite(PIN_MUTE,HIGH);
+      agc_peak = saved_agc;
     }
-    else if (b_PTT)
-    {
-      process_ssb_tx();
-    }
-    // back to receive
-    digitalWrite(PIN_TX,LOW);
-    radio.tx_enable = false;
-    delay(10);
-    digitalWrite(PIN_RX,HIGH);
-    delay(10);
-    digitalWrite(LED_BUILTIN,LOW);
-    update_display();
-    digitalWrite(PIN_MUTE,HIGH);
-    agc_peak = saved_agc;
   }
 }

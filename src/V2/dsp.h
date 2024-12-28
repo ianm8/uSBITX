@@ -153,7 +153,7 @@ static const int16_t __not_in_flash_func(process_cw_rx)(const int16_t s,const ui
   volatile static uint32_t dds = 0;
 
   // narrow bandpass (also removes DC)
-  const int32_t m = (int32_t)FILTER::bpf_fs4_cw(s);
+  const int32_t m = (int32_t)FILTER::bpf_fs4f_cw(s);
 
   // mix with BFO
   const int32_t bfo = (int32_t)sin_tab[dds>>22];
@@ -230,8 +230,7 @@ static const int16_t __not_in_flash_func(process_amn_rx)(const int16_t s,const b
   v = abs(v);
 
   // remove DC and filter
-  //v = FILTER::lpf_fs8_rx(FILTER::dc(v));
-  v = FILTER::lpf_3000_rx(FILTER::dc(v));
+  v = FILTER::bpf_300_3000f_rx(FILTER::dc(v));
 
   // more gain on higher bands
   if (higain) v <<= 1;
@@ -256,7 +255,8 @@ static const int16_t __not_in_flash_func(process_amw_rx)(const int16_t s,const b
   v = abs(v);
 
   // remove DC and filter
-  v = FILTER::lpf_fs4_rx(FILTER::dc(v));
+  //v = FILTER::lpf_fs4_rx(FILTER::dc(v));
+  v = FILTER::bpf_100_4000f_rx(FILTER::dc(v));
 
   // more gain on higher bands
   if (higain) v <<= 1;
