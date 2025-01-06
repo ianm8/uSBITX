@@ -30,3 +30,5 @@ Some history
  *  2.3.225 add AML and AMU modes (TX in AM, RX in SSB)
  *  2.4.225 general coverage receive mode
  *  2.5.225 improve AM and CW filtering
+ *  2.6.225 fix bug in CW overloading
+ *  2.7.225 move extra gain to AGC
