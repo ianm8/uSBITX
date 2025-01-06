@@ -1,5 +1,5 @@
 /*
- * uSBITX Version 2.5.225
+ * uSBITX Version 2.7.225
  *
  * Copyright 2024 Ian Mitchell VK7IAN
  * Licenced under the GNU GPL Version 3
@@ -47,6 +47,8 @@
  *  2.3.225 add AML and AMU modes (TX in AM, RX in SSB)
  *  2.4.225 general coverage receive mode
  *  2.5.225 improve AM and CW filtering
+ *  2.6.225 fix bug in CW overloading
+ *  2.7.225 move extra gain to AGC
  *
  */
 
@@ -67,7 +69,7 @@
 
 //#define YOUR_CALL "VK7IAN"
 
-#define VERSION_STRING "  V2.5."
+#define VERSION_STRING "  V2.7."
 #define CRYSTAL_CENTRE 39999500UL
 #define IF_CENTRE 7812UL
 #define CW_TIMEOUT 800u

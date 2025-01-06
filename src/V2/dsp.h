@@ -104,7 +104,7 @@ static const int16_t __not_in_flash_func(process_am_tx)(const int16_t s)
 
 volatile static float agc_peak = 0.0f;
 
-static const int16_t __not_in_flash_func(agc)(const int16_t in)
+static const int16_t __not_in_flash_func(agc)(const int16_t in,const bool higain)
 {
   const float magnitude = (float)abs(in);
   if (magnitude>agc_peak)
@@ -120,8 +120,8 @@ static const int16_t __not_in_flash_func(agc)(const int16_t in)
   // set maximum gain possible for 12 bits DAC
   const float m = 2047.0f/agc_peak;
 
-  // limit gain to max of 40 (32db)
-  const float max_gain = 40.0f;
+  // limit gain to max of 40 (32dB) or 100 (40dB)
+  const float max_gain = higain?100.0f:40.0f;
   return (int16_t)((float)in*min(m,max_gain));
 }
 
@@ -162,15 +162,11 @@ static const int16_t __not_in_flash_func(process_cw_rx)(const int16_t s,const ui
   // recover 6dB loss and remove image after mixing
   v = FILTER::bpf_500_1500_cw(v<<1);
 
-  // extra gain for CW
-  v <<= 1;
-
   // noise reduction
-  v = FILTER::ma_order_4(v<<1);
+  v = FILTER::ma_order_4(v);
   
-  // AGC will fix it
-  if (higain) v <<= 1;
-  v = agc(v);
+  // more gain on higher bands
+  v = agc(v,higain);
 
   // update DDS
   dds += phase;
@@ -208,8 +204,8 @@ static const int16_t __not_in_flash_func(process_ssb_rx)(const int16_t s,const b
   // 300Hz - 2400Hz BPF
   v = FILTER::bpf_300_2400_rx(m<<1);
 
-  if (higain) v <<= 1;
-  v = agc(v);
+  // more gain on higher bands
+  v = agc(v,higain);
   return v;
 }
 
@@ -233,8 +229,7 @@ static const int16_t __not_in_flash_func(process_amn_rx)(const int16_t s,const b
   v = FILTER::bpf_300_3000f_rx(FILTER::dc(v));
 
   // more gain on higher bands
-  if (higain) v <<= 1;
-  v = agc(v);
+  v = agc(v,higain);
   return v;
 }
 
@@ -259,8 +254,7 @@ static const int16_t __not_in_flash_func(process_amw_rx)(const int16_t s,const b
   v = FILTER::bpf_100_4000f_rx(FILTER::dc(v));
 
   // more gain on higher bands
-  if (higain) v <<= 1;
-  v = agc(v);
+  v = agc(v,higain);
   return v;
 }
 
