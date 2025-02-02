@@ -1,3 +1,5 @@
+### Please see [Version 3](https://github.com/ianm8/uSBITX/tree/main/src/V3). This version is here for reference.
+
 A version with extra features and options that are possibly experimental.
 
 Build:
