@@ -67,43 +67,6 @@ namespace DSP
     return (int16_t)(v * mic_gain * 2.0f * 512.0f);
   }
 
-////
-/*
-  static const int16_t __not_in_flash_func(process_am_tx)(const int16_t s)
-  {
-    // generate an AM signal at FS/4 (7812 Hz)
-    // 1. bandpass filter (300 - 2400)
-    // 2. Add DC
-    // 2. upconvert to FS/4 (mix with BFO at FS/4)
-    volatile static int32_t alc = 256L;
-
-    // BFO oscillates
-    static uint8_t bfo = 0;
-    const uint8_t phase = bfo & 0x03;
-    bfo++;
-
-    // setup DC bias for AM
-    static const int16_t DC = 256l;
-
-    // bandpass filter
-    const int16_t bpf2400 = FILTER::bpf_300_2400_tx(s>>5) + DC;
-
-    // up convert to FS/4
-    int16_t v = 0;
-    switch (phase)
-    {
-      case 0: v = +bpf2400; break;
-      case 2: v = -bpf2400; break;
-    }
-
-    // ALC
-    v = (int16_t)(((int32_t)v * alc) >> 8);
-    if (abs(v)>511) alc--;
-
-    return v;
-  }
-*/
-
   static const int16_t __not_in_flash_func(process_am_tx)(const int16_t s,const float mic_gain)
   {
     // generate an AM signal at FS/4 (7812 Hz)
@@ -120,7 +83,7 @@ namespace DSP
     static const float DC = 0.25f;
 
     // bandpass filter
-    const float bpf2400 = FILTER::bpf_300_2400f_tx((float)s * mic_gain * (1.0f / 8192.0f / 32.0f)) + DC;
+    const float bpf2400 = FILTER::bpf_300_2400f_tx((float)s * mic_gain * (1.0f / 8192.0f / 4.0f)) + DC;
 
     // up convert to FS/4
     float v = 0;
