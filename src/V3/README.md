@@ -35,3 +35,5 @@ Some history
  *  3.0.225 move all DSP to floating point
  *  3.1.225 improved smeter
  *  3.2.225 mic gain options
+ *  4.0.225 implement CESSB
+ *  4.1.225 display CESSB and mic gain
