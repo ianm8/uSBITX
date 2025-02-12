@@ -32,7 +32,7 @@
 
 */
 
-#define NUM_MENU_ITEMS 12U
+#define NUM_MENU_ITEMS 13U
 #define NUM_MENU_OPTIONS 10U
 
 enum menu_top_t
@@ -47,6 +47,7 @@ enum menu_top_t
   MENU_SPECTRUM_TYPE,
   MENU_JNR,
   MENU_MIC,
+  MENU_CESSB,
   MENU_GAUSSIAN,
   MENU_EXIT
 };
@@ -111,15 +112,16 @@ enum option_value_t
   OPTION_JNR_LEVEL1,
   OPTION_JNR_LEVEL2,
   OPTION_JNR_LEVEL3,
+  OPTION_MIC_25,
   OPTION_MIC_50,
-  OPTION_MIC_60,
-  OPTION_MIC_70,
-  OPTION_MIC_80,
-  OPTION_MIC_90,
+  OPTION_MIC_75,
   OPTION_MIC_100,
   OPTION_MIC_125,
   OPTION_MIC_150,
   OPTION_MIC_175,
+  OPTION_MIC_200,
+  OPTION_CESSB_ON,
+  OPTION_CESSB_OFF,
   OPTION_NONE,
   OPTION_EXIT
 };
@@ -295,21 +297,36 @@ menu_options[NUM_MENU_ITEMS] =
   {
     MENU_MIC,
     "Mic Gain",
-    10U,
+    9U,
     {
+      {OPTION_MIC_25,"Gain 25%"},
       {OPTION_MIC_50,"Gain 50%"},
-      {OPTION_MIC_60,"Gain 60%"},
-      {OPTION_MIC_70,"Gain 70%"},
-      {OPTION_MIC_80,"Gain 80%"},
-      {OPTION_MIC_90,"Gain 90%"},
+      {OPTION_MIC_75,"Gain 75%"},
       {OPTION_MIC_100,"Gain 100%"},
       {OPTION_MIC_125,"Gain 125%"},
       {OPTION_MIC_150,"Gain 150%"},
       {OPTION_MIC_175,"Gain 175%"},
+      {OPTION_MIC_200,"Gain 200%"},
       {OPTION_EXIT,"Exit"},
     }
   },
-
+  {
+    MENU_CESSB,
+    "CESSB",
+    3U,
+    {
+      {OPTION_CESSB_ON,"On"},
+      {OPTION_CESSB_OFF,"Off"},
+      {OPTION_EXIT,"Exit"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"},
+      {OPTION_NONE,"None"}
+    }
+  },
   {
     MENU_GAUSSIAN,
     "Gaussian",

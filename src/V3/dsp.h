@@ -35,7 +35,7 @@ namespace DSP
     return mic_peak_level;
   }
 
-  static const int16_t __not_in_flash_func(process_ssb_tx)(const int16_t s,const bool mode_LSB,const float mic_gain)
+  static const int16_t __not_in_flash_func(do_ssb_tx)(const int16_t s,const bool mode_LSB,const float mic_gain)
   {
     // generate an SSB signal at FS/4 (7812 Hz)
     // 1. bandpass filter (300 - 2400)
@@ -65,6 +65,61 @@ namespace DSP
 
     // make up for 6dB loss
     return (int16_t)(v * mic_gain * 2.0f * 512.0f);
+  }
+
+  static void __not_in_flash_func(cessb)(float& ii, float& qq)
+  {
+    const float mag_raw = sqrtf(ii*ii + qq*qq);
+    const float mag_max = fmaxf(mag_raw, 1.0f);
+    ii = FILTER::lpf_2400if_tx(ii / mag_max);
+    qq = FILTER::lpf_2400qf_tx(qq / mag_max);
+  }
+
+  static const int16_t __not_in_flash_func(do_cessb_tx)(const int16_t s,const bool mode_LSB,const float mic_gain)
+  {
+    // generate an SSB signal at FS/4 (7812 Hz)
+    // 1. bandpass filter (300 - 2400)
+    // 2. phase shift +/- 45 degrees
+    // 3. apply CESSB
+    // 3. upconvert to FS/4 (mix with BFO at FS/4)
+    // 4. remove unwanted sideband (LO direction)
+
+    // BFO oscillates
+    static uint8_t bfo = 0;
+    const uint8_t phase = bfo & 0x03;
+    bfo += mode_LSB?-1:+1;;
+
+    // bandpass filter mic signal
+    const float bpf2400 = FILTER::bpf_300_2400f_tx((float)s / 8192.0f);
+
+    // apply CESSB
+    const float ii1 = FILTER::fap1f(bpf2400);
+    const float qq1 = FILTER::fap2f(bpf2400);
+    float ii2 = ii1 * mic_gain;
+    float qq2 = qq1 * mic_gain;
+    cessb(ii2,qq2);
+
+    // up convert to FS/4 and remove unwanted sideband
+    float v = 0;
+    switch (phase)
+    {
+      case 0: v = +ii2; break;
+      case 1: v = +qq2; break;
+      case 2: v = -ii2; break;
+      case 3: v = -qq2; break;
+    }
+
+    // return 10 bit int
+    return (int16_t)(v * 512.0f);
+  }
+
+  static const int16_t __not_in_flash_func(process_ssb_tx)(const int16_t s,const bool mode_LSB,const float mic_gain,const bool cessb_on)
+  {
+    if (cessb_on)
+    {
+      return do_cessb_tx(s,mode_LSB,mic_gain);
+    }
+    return do_ssb_tx(s,mode_LSB,mic_gain);
   }
 
   static const int16_t __not_in_flash_func(process_am_tx)(const int16_t s,const float mic_gain)
