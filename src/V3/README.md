@@ -39,5 +39,5 @@ Some history
  *  4.0.225 implement CESSB
  *  4.1.225 display CESSB and mic gain
  *  4.2.225 fix SWR and power measurement
- *  4.2.240 consistant with other projects
+ *  4.2.240 consistent with other projects
 
