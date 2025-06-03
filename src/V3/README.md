@@ -1,7 +1,8 @@
 A version with extra features and options.
 
 Build:
- *  CPU Speed: 225Mhz
+ *  Pico 2
+ *  CPU Speed: 240Mhz
  *  Optimize: -O2
  *  USB Stack: No USB
  *  Flash Size: 4MB (Sketch: 4032KB, FS: 64KB)
