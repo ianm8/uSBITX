@@ -18,7 +18,7 @@
  *
  * Build:
  *  Pico 2
- *  CPU Speed: 225Mhz
+ *  CPU Speed: 240Mhz
  *  Optimize: -O2
  *  USB Stack: No USB
  *  Flash Size: 4MB (Sketch: 4032KB, FS: 64KB)
@@ -54,6 +54,8 @@
  *  3.2.225 mic gain
  *  4.0.225 CESSB
  *  4.1.225 display CESSB and mic gain
+ *  4.2.225 fix SWR and power measurement
+ *  4.2.240 consistent with other projects
  */
 
 #include <SPI.h>
@@ -73,7 +75,7 @@
 
 //#define YOUR_CALL "VK7IAN"
 
-#define VERSION_STRING "  V4.1."
+#define VERSION_STRING "  V4.2."
 #define CRYSTAL_CENTRE 39999500UL
 #define IF_CENTRE 7812UL
 #define CW_TIMEOUT 800u
@@ -722,9 +724,16 @@ static void show_swr(void)
 
   // power out
   // compensate for diode drop
-  static const float diode = 100.0f;
-  const float vcomp = vfwd + diode;
-  const uint32_t po = (uint32_t)(((vcomp * vcomp * 1e-5f) + 0.05f) * 10.0f);
+  // note:
+  //  voltage at ADC will be
+  //  1/10 (transformer voltage ratio)
+  //  1/2 (convert from pp to peak)
+  //  less diode drop (~0.3v)
+  //  1/2 (resistor divider)
+  static const float diode_drop = 0.3f;
+  static const float diode_comp = diode_drop / 2.0f;
+  const float Vforward = (vfwd * 3.3f / 1023.0f + diode_comp) * 40.0f;
+  const uint32_t po = (uint32_t)(((Vforward * Vforward) / 400.0f) * 10.0f + 0.5f);
   if (po>max_po)
   {
     max_po = po;
@@ -1456,7 +1465,7 @@ void __not_in_flash_func(loop)(void)
         }
         tx_value = constrain(tx_value,-512,+511);
         dac_tx_p = 512UL + tx_value;
-        dac_tx_n = 512UL - tx_value;
+        dac_tx_n = 511UL - tx_value;
         adc_data[adc_sample_p++] = tx_value;
         adc_sample_p &= (MAX_ADC_SAMPLES-1);
         volatile const uint32_t cpu_end = time_us_32();
