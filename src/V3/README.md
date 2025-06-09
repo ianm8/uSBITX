@@ -40,4 +40,6 @@ Some history
  *  4.1.225 display CESSB and mic gain
  *  4.2.225 fix SWR and power measurement
  *  4.2.240 consistent with other projects
+ *  4.3.240 set correct TCXO frequency
+ *  4.4.240 CW paddle improvements
 
