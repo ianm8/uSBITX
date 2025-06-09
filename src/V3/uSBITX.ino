@@ -1,12 +1,16 @@
 /*
- * uSBITX Version 4.1.225
+ * uSBITX Version 4.4.240
  *
- * Copyright 2024 Ian Mitchell VK7IAN
+ * Copyright 2025 Ian Mitchell VK7IAN
  * Licenced under the GNU GPL Version 3
  *
- * libraries
+ * Libraries
  *
- * https://github.com/Bodmer/TFT_eSPI
+ *  https://github.com/Bodmer/TFT_eSPI
+ *
+ * Filter Design
+ *
+ *  https://www.arc.id.au/FilterDesign.html
  *
  * Important:
  *   Copy "User_Setup.h" to  ..\Arduino\libraries\TFT_eSPI whenever the TFT_eSPI library is installed
@@ -54,8 +58,10 @@
  *  3.2.225 mic gain
  *  4.0.225 CESSB
  *  4.1.225 display CESSB and mic gain
- *  4.2.225 fix SWR and power measurement
+ *  4.2.225 fix power measurement
  *  4.2.240 consistent with other projects
+ *  4.3.240 set correct TCXO frequency
+ *  4.4.240 CW paddle improvements
  */
 
 #include <SPI.h>
@@ -75,7 +81,7 @@
 
 //#define YOUR_CALL "VK7IAN"
 
-#define VERSION_STRING "  V4.2."
+#define VERSION_STRING "  V4.4."
 #define CRYSTAL_CENTRE 39999500UL
 #define IF_CENTRE 7812UL
 #define CW_TIMEOUT 800u
@@ -100,7 +106,7 @@
 #define DEFAULT_CW_LEVEL 2ul
 #define DEFAULT_MICGAIN 100ul
 #define BUTTON_LONG_PRESS_TIME 800ul
-#define TCXO_FREQ 26000000ul
+#define TCXO_FREQ 25999980ul
 
 #define PIN_PTT      0 // Mic PTT (active low)
 #define PIN_TX       1 // high = TX and bias enable, low = RX
@@ -225,6 +231,8 @@ auto_init_mutex(rotary_mutex);
 volatile static uint32_t tx_pwm = 0;
 volatile static uint32_t audio_pwm = 0;
 volatile static bool setup_complete = false;
+volatile static bool dit_latched = false;
+volatile static bool dah_latched = false;
 
 volatile static uint32_t wp = 0;
 static uint8_t water[WATERFALL_ROWS][LCD_WIDTH] = {0};
@@ -688,16 +696,26 @@ static void show_tuning_step(void)
 
 static void show_swr(void)
 {
-  static uint32_t max_vswr = 0; 
-  static uint32_t max_po = 0; 
+  static const float diode_drop = 0.3f;
+  static const float diode_comp = diode_drop / 2.0f;
+  volatile static uint32_t max_vswr = 0; 
+  volatile static uint32_t max_po = 0; 
   if (!radio.tx_enable)
   {
     max_vswr = 0;
     max_po = 0;
     return;
   }
-  const float vfwd = (float)fwdADC.read();
-  const float vref = (float)refADC.read();
+  const uint32_t adc_fwd_raw = (uint32_t)fwdADC.read();
+  const uint32_t adc_ref_raw = (uint32_t)refADC.read();
+  if (adc_fwd_raw==0xffffu || adc_ref_raw==0xffffu)
+  {
+    return;
+  }
+  const float adcfwd = (float)(adc_fwd_raw);
+  const float adcref = (float)(adc_ref_raw);
+  const float vfwd = (adcfwd * 3.3f / 1023.0f) * 40.0f;
+  const float vref = (adcref * 3.3f / 1023.0f) * 40.0f;
   uint32_t vswr = 100u;
   if (vfwd>vref)
   {
@@ -708,6 +726,23 @@ static void show_swr(void)
   {
     max_vswr = vswr;
   }
+
+  // power out
+  // compensate for diode drop
+  // note:
+  //  voltage at ADC will be
+  //  1/10 (transformer voltage ratio)
+  //  1/2 (convert from pp to peak)
+  //  less diode drop (~0.3v)
+  //  1/2 (resistor divider)
+  const float pov = (adcfwd * 3.3f / 1023.0f + diode_comp) * 40.0f;
+  const uint32_t po = (uint32_t)(((pov * pov) / 400.0f) * 10.0f + 0.5f);
+  if (po>max_po)
+  {
+    max_po = po;
+  }
+
+  // dispplay SWR
   char sz_swr[16] = "";
   memset(sz_swr,0,sizeof(sz_swr));
   ultoa(max_vswr,sz_swr,10);
@@ -722,22 +757,7 @@ static void show_swr(void)
   lcd.setTextColor(LCD_WHITE);
   lcd.print(sz_swr);
 
-  // power out
-  // compensate for diode drop
-  // note:
-  //  voltage at ADC will be
-  //  1/10 (transformer voltage ratio)
-  //  1/2 (convert from pp to peak)
-  //  less diode drop (~0.3v)
-  //  1/2 (resistor divider)
-  static const float diode_drop = 0.3f;
-  static const float diode_comp = diode_drop / 2.0f;
-  const float Vforward = (vfwd * 3.3f / 1023.0f + diode_comp) * 40.0f;
-  const uint32_t po = (uint32_t)(((Vforward * Vforward) / 400.0f) * 10.0f + 0.5f);
-  if (po>max_po)
-  {
-    max_po = po;
-  }
+  // display power
   char sz_po[16] = "";
   memset(sz_po,0,sizeof(sz_po));
   ultoa(max_po,sz_po,10);
@@ -1612,13 +1632,31 @@ static void process_ssb_tx(void)
   }
 }
 
-static void cw_delay(const uint32_t ms,const uint32_t level)
+static void cw_dit_delay(const uint32_t ms,const uint32_t level)
 {
   const uint32_t delay_time = millis()+ms;
   update_display(level);
   while (delay_time>millis())
   {
-    tight_loop_contents();
+    // check for dah
+    if (digitalRead(PIN_PADB)==LOW)
+    {
+      dah_latched = true;
+    }
+  }
+}
+
+static void cw_dah_delay(const uint32_t ms,const uint32_t level)
+{
+  const uint32_t delay_time = millis()+ms;
+  update_display(level);
+  while (delay_time>millis())
+  {
+    // check for dit
+    if (digitalRead(PIN_PADA)==LOW)
+    {
+      dit_latched = true;
+    }
   }
 }
 
@@ -1636,6 +1674,9 @@ static void process_key(void)
   radio.tx_enable = true;
   delay(10);
 
+  // clear spectrum
+  memset(magnitude,0,sizeof(magnitude));
+
   // stay here until timeout after key up (PTT released)
   uint32_t cw_timeout = millis() + CW_TIMEOUT;
   for (;;)
@@ -1645,6 +1686,7 @@ static void process_key(void)
       // indicate PTT pressed
       digitalWrite(LED_BUILTIN,HIGH);
       radio.keydown = true;
+      magnitude[256] = 31u;
       update_display(15u);
       while (digitalRead(PIN_PTT)==LOW)
       {
@@ -1653,46 +1695,35 @@ static void process_key(void)
       // indicate PTT released
       digitalWrite(LED_BUILTIN,LOW);
       radio.keydown = false;
+      magnitude[256] = 0u;
       update_display(0u);
       cw_timeout = millis() + CW_TIMEOUT;
     }
-    if (digitalRead(PIN_PADA)==LOW)
+    if (digitalRead(PIN_PADA)==LOW || dit_latched)
     {
       // dit
-      cw_delay(radio.cw_dit,0u);
+      dit_latched = false;
+      cw_dit_delay(radio.cw_dit,0u);
       radio.keydown = true;
+      magnitude[256] = 31u;
       digitalWrite(LED_BUILTIN,HIGH);
-      cw_delay(radio.cw_dit,15u);
+      cw_dit_delay(radio.cw_dit,15u);
       radio.keydown = false;
+      magnitude[256] = 0u;
       digitalWrite(LED_BUILTIN,LOW);
       cw_timeout = millis() + CW_TIMEOUT;
     }
-    if (digitalRead(PIN_PADB)==LOW)
+    if (digitalRead(PIN_PADB)==LOW || dah_latched)
     {
       // dah
-      cw_delay(radio.cw_dit,0u);
+      dah_latched = false;
+      cw_dah_delay(radio.cw_dit,0u);
       radio.keydown = true;
+      magnitude[256] = 31u;
       digitalWrite(LED_BUILTIN,HIGH);
-      cw_delay(radio.cw_dit * 3, 15u);
+      cw_dah_delay(radio.cw_dit * 3, 15u);
       radio.keydown = false;
-      digitalWrite(LED_BUILTIN,LOW);
-      cw_timeout = millis() + CW_TIMEOUT;
-    }
-    if (digitalRead(PIN_PADA)==LOW && digitalRead(PIN_PADB)==LOW)
-    {
-      // dit
-      cw_delay(radio.cw_dit,0u);
-      radio.keydown = true;
-      digitalWrite(LED_BUILTIN,HIGH);
-      cw_delay(radio.cw_dit,15u);
-      radio.keydown = false;
-      digitalWrite(LED_BUILTIN,LOW);
-      // dah
-      cw_delay(radio.cw_dit,0u);
-      radio.keydown = true;
-      digitalWrite(LED_BUILTIN,HIGH);
-      cw_delay(radio.cw_dit * 3,15u);
-      radio.keydown = false;
+      magnitude[256] = 0u;
       digitalWrite(LED_BUILTIN,LOW);
       cw_timeout = millis() + CW_TIMEOUT;
     }
