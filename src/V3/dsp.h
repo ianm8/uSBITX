@@ -185,7 +185,7 @@ namespace DSP
     // measured 50 after SSB processing
     // need to return 10 for S9
     static const float S0_sig = 5.0f;
-    static const float S9_sig = 25.0f;
+    static const float S9_sig = 50.0f;
     static const float S9p_sig = 1024.0f;
     static const uint32_t S9_from_min = (uint32_t)(log10f(S0_sig) * 1024.0f);
     static const uint32_t S9_from_max = (uint32_t)(log10f(S9_sig) * 1024.0f);

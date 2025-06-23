@@ -4538,19 +4538,18 @@ namespace spectrum
 
     // improve the display dynamic range
     uint32_t range_adjust = 0;
-    if (max_mag<1024)
+    if (max_mag<64)
     {
       range_adjust = 3u;
     }
-    else if (max_mag<2048)
+    else if (max_mag<128)
     {
       range_adjust = 2u;
     }
-    else if (max_mag<4096)
+    else if (max_mag<256)
     {
       range_adjust = 1u;
     }
-
     // Hann window
     for (uint32_t i = 0; i < N_WAVE; i++)
     {

@@ -1,5 +1,5 @@
 /*
- * uSBITX Version 4.4.240
+ * uSBITX Version 4.5.240
  *
  * Copyright 2025 Ian Mitchell VK7IAN
  * Licenced under the GNU GPL Version 3
@@ -62,6 +62,7 @@
  *  4.2.240 consistent with other projects
  *  4.3.240 set correct TCXO frequency
  *  4.4.240 CW paddle improvements
+ *  4.5.240 spectrum gain and smeter update
  */
 
 #include <SPI.h>
@@ -81,7 +82,7 @@
 
 //#define YOUR_CALL "VK7IAN"
 
-#define VERSION_STRING "  V4.4."
+#define VERSION_STRING "  V4.5."
 #define CRYSTAL_CENTRE 39999500UL
 #define IF_CENTRE 7812UL
 #define CW_TIMEOUT 800u
