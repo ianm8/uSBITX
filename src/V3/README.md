@@ -42,4 +42,5 @@ Some history
  *  4.2.240 consistent with other projects
  *  4.3.240 set correct TCXO frequency
  *  4.4.240 CW paddle improvements
+ *  4.5.240 spectrum gain and smeter update
 
