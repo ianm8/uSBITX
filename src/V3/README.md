@@ -3,9 +3,9 @@ A version with extra features and options.
 Build:
  *  Pico 2
  *  CPU Speed: 240Mhz
- *  Optimize: -O2
+ *  Optimize: -O3
  *  USB Stack: No USB
- *  Flash Size: 4MB (Sketch: 4032KB, FS: 64KB)
+ *  Flash Size: 4MB (No FS)
 
 Some history
  *  0.7.255 fixed bug in auto mode
@@ -43,4 +43,6 @@ Some history
  *  4.3.240 set correct TCXO frequency
  *  4.4.240 CW paddle improvements
  *  4.5.240 spectrum gain and smeter update
+ *  4.6.240 use modified TFT_eSPI2 library
+ *  4.7.240 enhance RX/TX audio
 
