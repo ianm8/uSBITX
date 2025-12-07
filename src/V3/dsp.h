@@ -35,10 +35,36 @@ namespace DSP
     return mic_peak_level;
   }
 
+  static const float __not_in_flash_func(mic_compression)(const float s,const int compression_level)
+  {
+    const float gain = (float)compression_level / 10.0f;
+
+    static const float compression_threshold = 0.1f;
+    static const float compression_ratio = 4.0f;
+
+    float output = s;
+    if (s > compression_threshold)
+    {
+      output = compression_threshold + (s - compression_threshold) / compression_ratio;
+    }
+    else if (s < -compression_threshold)
+    {
+      output = -compression_threshold + (s + compression_threshold) / compression_ratio;
+    }
+
+    // apply the requested gain
+    output *= 1.0f + gain;
+
+    // limit output
+    if (output > 1.0f) output = 1.0f;
+    if (output < -1.0f) output = -1.0f;
+    return output;
+  }
+
   static const int16_t __not_in_flash_func(do_ssb_tx)(const int16_t s,const bool mode_LSB,const float mic_gain)
   {
     // generate an SSB signal at FS/4 (7812 Hz)
-    // 1. bandpass filter (300 - 2400)
+    // 1. bandpass filter (300 - 2600)
     // 2. upconvert to FS/4 (mix with BFO at FS/4)
     // 3. remove unwanted sideband (LPF/HPF at FS/4)
 
@@ -48,7 +74,9 @@ namespace DSP
     bfo++;
 
     // bandpass filter mic signal
-    const float bpf2400 = FILTER::bpf_300_2400f_tx((float)s / 8192.0f);
+////
+    const float compress = mic_compression(FILTER::dcf((float)s / 8192.0f),8);
+    const float bpf = FILTER::bpf_300_2600f_tx(compress);
 
     // up convert to FS/4
     // LO signal reduces to 0, 1 and -1 at FS/4
@@ -56,8 +84,8 @@ namespace DSP
     float v = 0;
     switch (phase)
     {
-      case 0: v = +bpf2400; break;
-      case 2: v = -bpf2400; break;
+      case 0: v = +bpf; break;
+      case 2: v = -bpf; break;
     }
 
     // remove the unwanted sideband
@@ -71,14 +99,14 @@ namespace DSP
   {
     const float mag_raw = sqrtf(ii*ii + qq*qq);
     const float mag_max = fmaxf(mag_raw, 1.0f);
-    ii = FILTER::lpf_2400if_tx(ii / mag_max);
-    qq = FILTER::lpf_2400qf_tx(qq / mag_max);
+    ii = FILTER::lpf_2600if_tx(ii / mag_max);
+    qq = FILTER::lpf_2600qf_tx(qq / mag_max);
   }
 
   static const int16_t __not_in_flash_func(do_cessb_tx)(const int16_t s,const bool mode_LSB,const float mic_gain)
   {
     // generate an SSB signal at FS/4 (7812 Hz)
-    // 1. bandpass filter (300 - 2400)
+    // 1. bandpass filter (300 - 2600)
     // 2. phase shift +/- 45 degrees
     // 3. apply CESSB
     // 3. upconvert to FS/4 (mix with BFO at FS/4)
@@ -90,11 +118,11 @@ namespace DSP
     bfo += mode_LSB?-1:+1;;
 
     // bandpass filter mic signal
-    const float bpf2400 = FILTER::bpf_300_2400f_tx((float)s / 8192.0f);
+    const float bpf2600 = FILTER::bpf_300_2600f_tx((float)s / 8192.0f);
 
     // apply CESSB
-    const float ii1 = FILTER::fap1f(bpf2400);
-    const float qq1 = FILTER::fap2f(bpf2400);
+    const float ii1 = FILTER::fap1f(bpf2600);
+    const float qq1 = FILTER::fap2f(bpf2600);
     float ii2 = ii1 * mic_gain;
     float qq2 = qq1 * mic_gain;
     cessb(ii2,qq2);
@@ -125,7 +153,7 @@ namespace DSP
   static const int16_t __not_in_flash_func(process_am_tx)(const int16_t s,const float mic_gain)
   {
     // generate an AM signal at FS/4 (7812 Hz)
-    // 1. bandpass filter (300 - 2400)
+    // 1. bandpass filter (300 - 2600)
     // 2. Add DC
     // 2. upconvert to FS/4 (mix with BFO at FS/4)
 
@@ -138,14 +166,14 @@ namespace DSP
     static const float DC = 0.25f;
 
     // bandpass filter
-    const float bpf2400 = FILTER::bpf_300_2400f_tx((float)s * mic_gain * (1.0f / 8192.0f / 4.0f)) + DC;
+    const float bpf = FILTER::bpf_300_2600f_tx((float)s * mic_gain * (1.0f / 8192.0f / 4.0f)) + DC;
 
     // up convert to FS/4
     float v = 0;
     switch (phase)
     {
-      case 0: v = +bpf2400; break;
-      case 2: v = -bpf2400; break;
+      case 0: v = +bpf; break;
+      case 2: v = -bpf; break;
     }
 
     // convert to 10 bit integer
@@ -238,7 +266,7 @@ namespace DSP
     // 1. remove DC (FS/8 HPF)
     // 2. remove unwanted sideband (LPF/HPF at FS/4)
     // 3. downconvert to baseband (mix with BFO at FS/4)
-    // 4. bandpass filter (300 - 2400)
+    // 4. bandpass filter (300 - 2600)
 
     // BFO oscillates
     volatile static uint8_t bfo = 0;
@@ -261,7 +289,7 @@ namespace DSP
     }
 
     // 300Hz - 2400Hz BPF
-    v = FILTER::bpf_300_2400f_rx(m);
+    v = FILTER::bpf_300_2600f_rx(m);
     return agc(v * 8192.0f);
   }
 

@@ -1,12 +1,12 @@
 /*
- * uSBITX Version 4.5.240
+ * uSBITX Version 4.7.240
  *
  * Copyright 2025 Ian Mitchell VK7IAN
  * Licenced under the GNU GPL Version 3
  *
  * Libraries
  *
- *  https://github.com/Bodmer/TFT_eSPI
+ *  https://github.com/Bodmer/TFT_eSPI now modifed - use TFT_eSPI2
  *
  * Filter Design
  *
@@ -23,9 +23,9 @@
  * Build:
  *  Pico 2
  *  CPU Speed: 240Mhz
- *  Optimize: -O2
+ *  Optimize: -O3
  *  USB Stack: No USB
- *  Flash Size: 4MB (Sketch: 4032KB, FS: 64KB)
+ *  Flash Size: 4MB (No FS)
  *
  * Some history
  *  0.7.255 fixed bug in auto mode
@@ -63,11 +63,13 @@
  *  4.3.240 set correct TCXO frequency
  *  4.4.240 CW paddle improvements
  *  4.5.240 spectrum gain and smeter update
+ *  4.6.240 use modified TFT_eSPI2 library
+ *  4.7.240 enhance RX/TX audio
  */
 
 #include <SPI.h>
 #include <EEPROM.h>
-#include <TFT_eSPI.h>
+#include <TFT_eSPI2.h>
 #include "util.h"
 #include "si5351mcu.h"
 #include "mcp3021.h"
@@ -82,7 +84,7 @@
 
 //#define YOUR_CALL "VK7IAN"
 
-#define VERSION_STRING "  V4.5."
+#define VERSION_STRING "  V4.7."
 #define CRYSTAL_CENTRE 39999500UL
 #define IF_CENTRE 7812UL
 #define CW_TIMEOUT 800u
@@ -560,6 +562,7 @@ void setup(void)
   tft.init();
   tft.setRotation(1);
   tft.fillScreen(LCD_BLACK);
+  tft.displayOn();
   lcd.createSprite(LCD_WIDTH, LCD_HEIGHT);
   lcd.fillSprite(LCD_BLACK);
   lcd.pushSprite(0,0);
@@ -1013,18 +1016,21 @@ static void show_cessb_settings(void)
 static void show_spectrum(void)
 {
   // show the frequency
+  static const uint32_t ssb_width = 60;
+  static const uint32_t cw_width = 20;
+  static const uint32_t am_width = 50;
   lcd.setTextSize(1);
   lcd.setTextColor(LCD_WHITE);
   lcd.setCursor(0,POS_WATER_Y+4);
-  lcd.print("-8KHz");
+  lcd.print("-6KHz");
   lcd.setCursor(LCD_WIDTH-34,POS_WATER_Y+4);
-  lcd.print("+8KHz");
+  lcd.print("+6KHz");
 
   if (radio.tx_enable &&
     (radio.mode==MODE_AMN || radio.mode==MODE_AMW ||
     radio.mode==MODE_AML || radio.mode==MODE_AMU))
   {
-    for (uint32_t x=0;x<40;x++)
+    for (uint32_t x=0;x<ssb_width;x++)
     {
       lcd.drawLine(POS_CENTER_LEFT-x,POS_WATER_Y,POS_CENTER_LEFT-x,POS_WATER_Y+31,LCD_MODE);
       lcd.drawLine(POS_CENTER_RIGHT+x,POS_WATER_Y,POS_CENTER_RIGHT+x,POS_WATER_Y+31,LCD_MODE);
@@ -1037,7 +1043,7 @@ static void show_spectrum(void)
       case MODE_LSB:
       case MODE_AML:
       {
-        for (uint32_t x=0;x<40;x++)
+        for (uint32_t x=0;x<ssb_width;x++)
         {
           lcd.drawLine(POS_CENTER_LEFT-x,POS_WATER_Y,POS_CENTER_LEFT-x,POS_WATER_Y+31,LCD_MODE);
         }
@@ -1046,7 +1052,7 @@ static void show_spectrum(void)
       case MODE_USB:
       case MODE_AMU:
       {
-        for (uint32_t x=0;x<40;x++)
+        for (uint32_t x=0;x<ssb_width;x++)
         {
           lcd.drawLine(POS_CENTER_RIGHT+x,POS_WATER_Y,POS_CENTER_RIGHT+x,POS_WATER_Y+31,LCD_MODE);
         }
@@ -1055,7 +1061,7 @@ static void show_spectrum(void)
       case MODE_CWL:
       case MODE_CWU:
       {
-        for (uint32_t x=0;x<5;x++)
+        for (uint32_t x=0;x<cw_width;x++)
         {
           lcd.drawLine(POS_CENTER_LEFT-x,POS_WATER_Y,POS_CENTER_LEFT-x,POS_WATER_Y+31,LCD_MODE);
           lcd.drawLine(POS_CENTER_RIGHT+x,POS_WATER_Y,POS_CENTER_RIGHT+x,POS_WATER_Y+31,LCD_MODE);
@@ -1064,7 +1070,7 @@ static void show_spectrum(void)
       }
       case MODE_AMN:
       {
-        for (uint32_t x=0;x<40;x++)
+        for (uint32_t x=0;x<ssb_width;x++)
         {
           lcd.drawLine(POS_CENTER_LEFT-x,POS_WATER_Y,POS_CENTER_LEFT-x,POS_WATER_Y+31,LCD_MODE);
           lcd.drawLine(POS_CENTER_RIGHT+x,POS_WATER_Y,POS_CENTER_RIGHT+x,POS_WATER_Y+31,LCD_MODE);
@@ -1073,7 +1079,7 @@ static void show_spectrum(void)
       }
       case MODE_AMW:
       {
-        for (uint32_t x=0;x<50;x++)
+        for (uint32_t x=0;x<am_width;x++)
         {
           lcd.drawLine(POS_CENTER_LEFT-x,POS_WATER_Y,POS_CENTER_LEFT-x,POS_WATER_Y+31,LCD_MODE);
           lcd.drawLine(POS_CENTER_RIGHT+x,POS_WATER_Y,POS_CENTER_RIGHT+x,POS_WATER_Y+31,LCD_MODE);
@@ -1083,11 +1089,22 @@ static void show_spectrum(void)
     }
   }
 
+/*
+  // for wide crystal filter
   // max of two adjacent magnitudes
   for (uint32_t x=0;x<LCD_WIDTH;x++)
   {
     uint8_t droplet = magnitude[x*2+15];
     droplet = max(droplet,magnitude[x*2+16]);
+    if (droplet>31) droplet = 31;
+    water[wp][x] = droplet;
+  }
+*/
+  // for narrow crystal filter
+  // extract centre portion
+  for (uint32_t x=0;x<LCD_WIDTH;x++)
+  {
+    uint8_t droplet = magnitude[x+135];
     if (droplet>31) droplet = 31;
     water[wp][x] = droplet;
   }
